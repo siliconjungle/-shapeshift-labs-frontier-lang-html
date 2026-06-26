@@ -1,4 +1,5 @@
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
+export { safeMergeHtmlSource } from './semantic-merge.js';
 
 const VoidTags = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
 const RuntimeBoundaryTags = new Set(['script', 'style', 'template', 'slot']);

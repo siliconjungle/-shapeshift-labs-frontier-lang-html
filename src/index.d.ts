@@ -136,6 +136,49 @@ export interface HtmlSemanticMergeEvidence {
   readonly browserRuntimeEquivalenceClaim: false;
 }
 
+export interface HtmlSafeMergeConflict {
+  readonly code: string;
+  readonly gateId: 'html-semantic-merge' | string;
+  readonly sourcePath?: string;
+  readonly details: Readonly<Record<string, unknown>> & { readonly reasonCode: string; readonly conflictKey: string };
+}
+
+export interface HtmlSafeMergeAdmission {
+  readonly status: 'auto-merge-candidate' | 'blocked' | string;
+  readonly action: 'apply-html' | 'human-review' | string;
+  readonly reviewRequired: boolean;
+  readonly reasonCodes: readonly string[];
+}
+
+export interface HtmlSafeMergeResult {
+  readonly kind: 'frontier.lang.htmlSafeMerge';
+  readonly version: 1;
+  readonly id: string;
+  readonly sourcePath?: string;
+  readonly status: 'merged' | 'blocked' | string;
+  readonly operation: string;
+  readonly mergedSourceText?: string;
+  readonly mergedSourceHash?: string;
+  readonly conflicts: readonly HtmlSafeMergeConflict[];
+  readonly admission: HtmlSafeMergeAdmission;
+  readonly autoMergeClaim: false;
+  readonly semanticEquivalenceClaim: false;
+  readonly browserRuntimeEquivalenceClaim: false;
+  readonly baseTreeHash?: string;
+  readonly workerTreeHash?: string;
+  readonly headTreeHash?: string;
+  readonly workerChangedRecords?: number;
+  readonly headChangedRecords?: number;
+}
+
+export interface HtmlSafeMergeInput {
+  readonly id?: string;
+  readonly sourcePath?: string;
+  readonly baseSourceText?: string;
+  readonly workerSourceText?: string;
+  readonly headSourceText?: string;
+}
+
 export declare function toHtmlAst(document: FrontierLangDocument, options?: HtmlProjectionOptions): HtmlAstDocument;
 export declare function renderHtmlAst(ast: HtmlAstDocument): string;
 export declare function renderHtmlAstWithSourceMap(ast: HtmlAstDocument, options?: HtmlProjectionOptions): HtmlProjectionResult;
@@ -143,3 +186,4 @@ export declare function emitHtml(document: FrontierLangDocument, options?: HtmlP
 export declare function emitHtmlWithSourceMap(document: FrontierLangDocument, options?: HtmlProjectionOptions): HtmlProjectionWithAstResult;
 export declare function parseHtmlSemanticTree(sourceText: string, options?: HtmlProjectionOptions): HtmlSemanticTree;
 export declare function createHtmlSemanticMergeEvidence(sourceText: string, options?: HtmlProjectionOptions): HtmlSemanticMergeEvidence;
+export declare function safeMergeHtmlSource(input: HtmlSafeMergeInput): HtmlSafeMergeResult;

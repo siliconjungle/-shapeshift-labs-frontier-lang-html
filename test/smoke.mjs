@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { actionNode, capabilityNode, createDocument, entityNode, typeNode } from '@shapeshift-labs/frontier-lang-kernel';
-import { createHtmlSemanticMergeEvidence, emitHtml, emitHtmlWithSourceMap, parseHtmlSemanticTree, renderHtmlAst, renderHtmlAstWithSourceMap, toHtmlAst } from '../dist/index.js';
+import { createHtmlSemanticMergeEvidence, emitHtml, emitHtmlWithSourceMap, parseHtmlSemanticTree, renderHtmlAst, renderHtmlAstWithSourceMap, safeMergeHtmlSource, toHtmlAst } from '../dist/index.js';
 
 const document = createDocument({ id: 'doc', name: 'TodoHtml', nodes: [
   typeNode({ id: 'type_input', name: 'TodoInput', fields: [{ id: 'field_title', name: 'title', type: 'Text' }] }),
@@ -74,3 +74,63 @@ assert.equal(evidence.status, 'needs-review');
 assert.equal(evidence.autoMergeClaim, false);
 assert.equal(evidence.semanticEquivalenceClaim, false);
 assert.equal(evidence.browserRuntimeEquivalenceClaim, false);
+
+const htmlMergeBase = [
+  '<main id="app">',
+  '  <h1>Todo</h1>',
+  '  <button data-frontier-key="save" type="button">Save</button>',
+  '</main>',
+  ''
+].join('\n');
+const htmlMergeWorker = htmlMergeBase.replace('Todo</h1>', 'Todos</h1>');
+const htmlMergeHead = htmlMergeBase.replace('type="button"', 'type="button" disabled');
+const htmlMerged = safeMergeHtmlSource({
+  id: 'html_independent_text_and_attribute',
+  sourcePath: 'view.html',
+  baseSourceText: htmlMergeBase,
+  workerSourceText: htmlMergeWorker,
+  headSourceText: htmlMergeHead
+});
+assert.equal(htmlMerged.kind, 'frontier.lang.htmlSafeMerge');
+assert.equal(htmlMerged.status, 'merged');
+assert.equal(htmlMerged.operation, 'semantic-html-merge');
+assert.match(htmlMerged.mergedSourceText, /<h1>Todos<\/h1>/);
+assert.match(htmlMerged.mergedSourceText, /<button data-frontier-key="save" type="button" disabled>/);
+assert.equal(htmlMerged.autoMergeClaim, false);
+assert.equal(htmlMerged.semanticEquivalenceClaim, false);
+assert.equal(htmlMerged.browserRuntimeEquivalenceClaim, false);
+
+const htmlAttributeMergeBase = [
+  '<button data-frontier-key="save" type="button">Save</button>',
+  ''
+].join('\n');
+const htmlAttributeMerge = safeMergeHtmlSource({
+  id: 'html_independent_attributes',
+  sourcePath: 'view.html',
+  baseSourceText: htmlAttributeMergeBase,
+  workerSourceText: htmlAttributeMergeBase.replace('type="button"', 'type="submit"'),
+  headSourceText: htmlAttributeMergeBase.replace('type="button"', 'type="button" aria-label="Save item"')
+});
+assert.equal(htmlAttributeMerge.status, 'merged');
+assert.match(htmlAttributeMerge.mergedSourceText, /aria-label="Save item"/);
+assert.match(htmlAttributeMerge.mergedSourceText, /type="submit"/);
+
+const htmlTextConflict = safeMergeHtmlSource({
+  id: 'html_text_conflict',
+  sourcePath: 'view.html',
+  baseSourceText: htmlMergeBase,
+  workerSourceText: htmlMergeWorker,
+  headSourceText: htmlMergeBase.replace('Todo</h1>', 'Task</h1>')
+});
+assert.equal(htmlTextConflict.status, 'blocked');
+assert.equal(htmlTextConflict.conflicts.some((conflict) => conflict.code === 'html-record-conflict'), true);
+
+const htmlRuntimeConflict = safeMergeHtmlSource({
+  id: 'html_script_conflict',
+  sourcePath: 'view.html',
+  baseSourceText: '<script>window.value = 1;</script>\n',
+  workerSourceText: '<script>window.value = 2;</script>\n',
+  headSourceText: '<script>window.value = 1;</script>\n'
+});
+assert.equal(htmlRuntimeConflict.status, 'blocked');
+assert.equal(htmlRuntimeConflict.conflicts.some((conflict) => conflict.code === 'html-proof-gap-blocked'), true);

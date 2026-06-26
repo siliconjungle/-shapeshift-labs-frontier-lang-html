@@ -211,7 +211,8 @@ Package source repositories:
 ```js
 import {
   createHtmlSemanticMergeEvidence,
-  emitHtmlWithSourceMap
+  emitHtmlWithSourceMap,
+  safeMergeHtmlSource
 } from '@shapeshift-labs/frontier-lang-html';
 
 const { code, sourceMap } = emitHtmlWithSourceMap(document, {
@@ -222,12 +223,20 @@ const { code, sourceMap } = emitHtmlWithSourceMap(document, {
 const evidence = createHtmlSemanticMergeEvidence(code, {
   sourcePath: 'todo.html'
 });
+
+const merge = safeMergeHtmlSource({
+  sourcePath: 'todo.html',
+  baseSourceText,
+  workerSourceText,
+  headSourceText
+});
 ```
 
-`sourceMap.mappings` links emitted element blocks back to Frontier Lang semantic node ids. `createHtmlSemanticMergeEvidence` records element identity, attributes, class lists, child/text/comment source spans, stable hashes, and fail-closed proof gaps for runtime-sensitive HTML surfaces.
+`sourceMap.mappings` links emitted element blocks back to Frontier Lang semantic node ids. `createHtmlSemanticMergeEvidence` records element identity, attributes, class lists, child/text/comment source spans, stable hashes, and fail-closed proof gaps for runtime-sensitive HTML surfaces. `safeMergeHtmlSource` admits independent text and attribute edits when source spans, element identity, and proof gaps are clean; structural additions/deletions and runtime-sensitive regions remain review-only.
 
 ## Support Boundary
 
 - Ready evidence: element tree identity, attributes, classes, text nodes, comments, source spans, stable hashes.
+- Auto-merge candidates: independent existing text-node edits and disjoint existing element-attribute edits.
 - Review-only gaps: `<script>`, `<style>`, `<template>`, custom elements, slots, framework directives, hydration, browser DOM/runtime equivalence.
 - Claims: `autoMergeClaim`, `semanticEquivalenceClaim`, and `browserRuntimeEquivalenceClaim` remain false.
