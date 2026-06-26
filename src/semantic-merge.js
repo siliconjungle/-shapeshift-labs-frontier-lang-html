@@ -1,5 +1,6 @@
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
 import { parseHtmlMergeTree } from './parser-evidence.js';
+import { mergeParserEvidence } from './safe-merge-parser-evidence.js';
 import { structuralConflicts, structuralPatchPlan } from './semantic-merge-structure.js';
 
 const VoidTags = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
@@ -28,15 +29,17 @@ function safeMergeHtmlSource(input = {}) {
     ...structuralConflicts(id, sourcePath, changes.head, changes.worker),
     ...overlapConflicts(id, sourcePath, changes.worker, changes.head)
   ];
-  if (conflicts.length) return blocked(id, sourcePath, 'html-semantic-merge-conflict', conflicts);
+  const parserEvidence = mergeParserEvidence(trees);
+  if (conflicts.length) return blocked(id, sourcePath, 'html-semantic-merge-conflict', conflicts, { parserEvidence });
   const patch = structuralPatchPlan(id, sourcePath, changes.worker, trees.worker, trees.head);
-  if (patch.conflicts.length) return blocked(id, sourcePath, 'html-semantic-merge-conflict', patch.conflicts);
+  if (patch.conflicts.length) return blocked(id, sourcePath, 'html-semantic-merge-conflict', patch.conflicts, { parserEvidence });
   return merged(id, sourcePath, applyReplacements(head, patch.replacements), 'semantic-html-merge', {
     baseTreeHash: trees.base.treeHash,
     workerTreeHash: trees.worker.treeHash,
     headTreeHash: trees.head.treeHash,
     workerChangedRecords: changes.worker.length,
-    headChangedRecords: changes.head.length
+    headChangedRecords: changes.head.length,
+    parserEvidence
   });
 }
 
@@ -49,11 +52,13 @@ function singleSideMerge(id, sourcePath, base, current, operation) {
     ...proofGapConflicts(id, sourcePath, changes, trees),
     ...structuralConflicts(id, sourcePath, changes)
   ];
-  if (conflicts.length) return blocked(id, sourcePath, 'html-semantic-merge-conflict', conflicts);
+  const parserEvidence = mergeParserEvidence(trees);
+  if (conflicts.length) return blocked(id, sourcePath, 'html-semantic-merge-conflict', conflicts, { parserEvidence });
   return merged(id, sourcePath, current, operation, {
     baseTreeHash: trees.base.treeHash,
     mergedTreeHash: trees.current.treeHash,
-    changedRecords: changes.length
+    changedRecords: changes.length,
+    parserEvidence
   });
 }
 
@@ -220,8 +225,8 @@ function merged(id, sourcePath, sourceText, operation, extra = {}) {
   return result(id, sourcePath, 'merged', { operation, mergedSourceText: sourceText, mergedSourceHash: hashSemanticValue(sourceText), conflicts: [], ...extra });
 }
 
-function blocked(id, sourcePath, reasonCode, conflicts = []) {
-  return result(id, sourcePath, 'blocked', { operation: 'blocked', conflicts: conflicts.length ? conflicts : [conflict(id, sourcePath, reasonCode, reasonCode)] });
+function blocked(id, sourcePath, reasonCode, conflicts = [], extra = {}) {
+  return result(id, sourcePath, 'blocked', { operation: 'blocked', conflicts: conflicts.length ? conflicts : [conflict(id, sourcePath, reasonCode, reasonCode)], ...extra });
 }
 
 function result(id, sourcePath, status, body) {

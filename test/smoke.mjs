@@ -119,6 +119,11 @@ assert.match(htmlMerged.mergedSourceText, /<button data-frontier-key="save" type
 assert.equal(htmlMerged.autoMergeClaim, false);
 assert.equal(htmlMerged.semanticEquivalenceClaim, false);
 assert.equal(htmlMerged.browserRuntimeEquivalenceClaim, false);
+assert.equal(htmlMerged.parserEvidence.parserNames.includes('parse5'), true);
+assert.equal(htmlMerged.parserEvidence.parserBackedSourceSpans, true);
+assert.equal(htmlMerged.parserEvidence.parserBackedAttributeSpans, true);
+assert.equal(htmlMerged.parserEvidence.parserBackedTriviaSpans, true);
+assert.equal(htmlMerged.parserEvidence.parseErrors, 0);
 
 const htmlAttributeMergeBase = [
   '<button data-frontier-key="save" type="button">Save</button>',
