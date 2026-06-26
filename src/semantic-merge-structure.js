@@ -2,6 +2,7 @@ function structuralConflicts(id, sourcePath, sideChanges, oppositeChanges = []) 
   const roots = structuralRoots(sideChanges);
   const conflicts = [];
   for (const change of sideChanges) {
+    if ((change.after ?? change.before)?.kind === 'child-order') continue;
     if (!isStructural(change)) continue;
     if (containedByStructuralRoot(change, roots)) continue;
     if (!isSafeStructuralRoot(change)) conflicts.push(conflict(id, sourcePath, 'html-structural-add-delete-unsupported', 'html-structural-add-delete-unsupported', { recordKey: change.key, changeKind: change.kind }));
@@ -16,6 +17,7 @@ function structuralPatchPlan(id, sourcePath, workerChanges, workerTree, headTree
   const roots = structuralRoots(workerChanges);
   for (const change of workerChanges) {
     if (containedByStructuralRoot(change, roots)) continue;
+    if ((change.after ?? change.before)?.kind === 'child-order' && change.kind !== 'update') continue;
     if (change.kind === 'add') {
       const existing = headTree.index.get(change.key);
       if (existing) {
@@ -35,6 +37,11 @@ function structuralPatchPlan(id, sourcePath, workerChanges, workerTree, headTree
     }
     const headRecord = headTree.index.get(change.key);
     if (!headRecord) conflicts.push(conflict(id, sourcePath, 'html-head-record-missing', 'html-head-record-missing', { recordKey: change.key }));
+    else if (change.after.kind === 'child-order') {
+      const replacement = childOrderReplacement(id, sourcePath, change, workerTree, headTree);
+      if (replacement.conflict) conflicts.push(replacement.conflict);
+      else if (replacement.replacement) replacements.push(replacement.replacement);
+    }
     else if (change.after.kind === 'element') replacements.push(elementReplacement(change, headRecord));
     else replacements.push({ start: headRecord.sourceSpan.startOffset, end: headRecord.sourceSpan.endOffset, text: change.after.value });
   }
@@ -103,6 +110,32 @@ function elementReplacement(change, headRecord) {
   return { start: headRecord.sourceSpan.startOffset, end: headRecord.sourceSpan.endOffset, text: renderStartTag(headRecord.tagName, attributes, headRecord.selfClosing) };
 }
 
+function childOrderReplacement(id, sourcePath, change, workerTree, headTree) {
+  if (!sameSet(change.before.childKeys, change.after.childKeys)) return {};
+  const headChildren = change.after.childKeys.map((key) => headTree.index.get(key));
+  if (headChildren.some((record) => !record?.structuralSpan || !record?.fullSpan)) {
+    return { conflict: conflict(id, sourcePath, 'html-child-order-anchor-missing', 'html-child-order-anchor-missing', { recordKey: change.key }) };
+  }
+  const parentKey = change.after.parentKey;
+  const unsafeDirectChild = headTree.records.some((record) => record.parentKey === parentKey
+    && ((record.kind === 'element' && record.explicitIdentity !== true) || record.kind === 'comment'));
+  if (unsafeDirectChild) {
+    return { conflict: conflict(id, sourcePath, 'html-child-order-unkeyed-sibling', 'html-child-order-unkeyed-sibling', { recordKey: change.key }) };
+  }
+  const currentKeys = headChildrenInSourceOrder(parentKey, headTree).map((record) => record.key);
+  if (!sameSet(currentKeys, change.after.childKeys)) {
+    return { conflict: conflict(id, sourcePath, 'html-child-order-head-diverged', 'html-child-order-head-diverged', { recordKey: change.key }) };
+  }
+  const sortedChildren = [...headChildren].sort((left, right) => left.structuralSpan.startOffset - right.structuralSpan.startOffset);
+  const start = sortedChildren[0].structuralSpan.startOffset;
+  const end = sortedChildren.at(-1).fullSpan.endOffset;
+  const text = change.after.childKeys.map((key) => {
+    const record = headTree.index.get(key);
+    return headTree.sourceText.slice(record.structuralSpan.startOffset, record.fullSpan.endOffset);
+  }).join('');
+  return { replacement: { start, end, text } };
+}
+
 function attributeChanges(before = {}, after = {}) {
   return unique([...Object.keys(before), ...Object.keys(after)]).filter((name) => before[name] !== after[name]).map((name) => ({ name, before: before[name], after: after[name] }));
 }
@@ -126,6 +159,16 @@ function pathContains(parentPath, childPath) {
 
 function samePath(left, right) {
   return Array.isArray(left) && Array.isArray(right) && left.length === right.length && left.every((part, index) => part === right[index]);
+}
+
+function sameSet(left = [], right = []) {
+  return left.length === right.length && left.every((value) => right.includes(value));
+}
+
+function headChildrenInSourceOrder(parentKey, tree) {
+  return tree.records
+    .filter((record) => record.kind === 'element' && record.parentKey === parentKey && record.explicitIdentity === true)
+    .sort((left, right) => left.sourceSpan.startOffset - right.sourceSpan.startOffset);
 }
 
 function conflict(id, sourcePath, code, reasonCode, details = {}) {

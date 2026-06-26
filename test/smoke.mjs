@@ -189,3 +189,38 @@ const htmlPathOnlyAddConflict = safeMergeHtmlSource({
 });
 assert.equal(htmlPathOnlyAddConflict.status, 'blocked');
 assert.equal(htmlPathOnlyAddConflict.conflicts.some((conflict) => conflict.code === 'html-structural-add-delete-unsupported'), true);
+
+const htmlListReorderBase = [
+  '<ul id="todos">',
+  '  <li data-frontier-key="a">A</li>',
+  '  <li data-frontier-key="b">B</li>',
+  '  <li data-frontier-key="c">C</li>',
+  '</ul>',
+  ''
+].join('\n');
+const htmlListReorder = safeMergeHtmlSource({
+  id: 'html_keyed_child_reorder',
+  sourcePath: 'view.html',
+  baseSourceText: htmlListReorderBase,
+  workerSourceText: [
+    '<ul id="todos">',
+    '  <li data-frontier-key="c">C</li>',
+    '  <li data-frontier-key="a">A</li>',
+    '  <li data-frontier-key="b">B</li>',
+    '</ul>',
+    ''
+  ].join('\n'),
+  headSourceText: htmlListReorderBase.replace('data-frontier-key="b">B', 'data-frontier-key="b" class="done">Bee')
+});
+assert.equal(htmlListReorder.status, 'merged');
+assert.match(htmlListReorder.mergedSourceText, /data-frontier-key="c">C<\/li>\n  <li data-frontier-key="a">A<\/li>\n  <li data-frontier-key="b" class="done">Bee<\/li>/);
+
+const htmlUnkeyedReorderConflict = safeMergeHtmlSource({
+  id: 'html_unkeyed_child_reorder_conflict',
+  sourcePath: 'view.html',
+  baseSourceText: ['<ul id="todos">', '  <li data-frontier-key="a">A</li>', '  <li>Loose</li>', '  <li data-frontier-key="b">B</li>', '</ul>', ''].join('\n'),
+  workerSourceText: ['<ul id="todos">', '  <li data-frontier-key="b">B</li>', '  <li>Loose</li>', '  <li data-frontier-key="a">A</li>', '</ul>', ''].join('\n'),
+  headSourceText: ['<ul id="todos" class="list">', '  <li data-frontier-key="a">A</li>', '  <li>Loose</li>', '  <li data-frontier-key="b">B</li>', '</ul>', ''].join('\n')
+});
+assert.equal(htmlUnkeyedReorderConflict.status, 'blocked');
+assert.equal(htmlUnkeyedReorderConflict.conflicts.some((conflict) => conflict.code === 'html-child-order-unkeyed-sibling'), true);

@@ -232,11 +232,11 @@ const merge = safeMergeHtmlSource({
 });
 ```
 
-`sourceMap.mappings` links emitted element blocks back to Frontier Lang semantic node ids. `createHtmlSemanticMergeEvidence` records element identity, attributes, class lists, child/text/comment source spans, stable hashes, and fail-closed proof gaps for runtime-sensitive HTML surfaces. `safeMergeHtmlSource` admits independent text, attribute, and explicit-key element subtree edits when source spans, element identity, and proof gaps are clean; unkeyed structure and runtime-sensitive regions remain review-only.
+`sourceMap.mappings` links emitted element blocks back to Frontier Lang semantic node ids. `createHtmlSemanticMergeEvidence` records element identity, attributes, class lists, child/text/comment source spans, stable hashes, and fail-closed proof gaps for runtime-sensitive HTML surfaces. `safeMergeHtmlSource` admits independent text, attribute, explicit-key element subtree, and explicit-key same-parent child-order edits when source spans, element identity, and proof gaps are clean; unkeyed structure and runtime-sensitive regions remain review-only.
 
 ## Support Boundary
 
 - Ready evidence: element tree identity, attributes, classes, text nodes, comments, source spans, stable hashes.
-- Auto-merge candidates: independent existing text-node edits, disjoint existing element-attribute edits, and explicit `id` / `data-frontier-key` element subtree additions or deletions.
-- Review-only gaps: unkeyed structural edits, `<script>`, `<style>`, `<template>`, custom elements, slots, framework directives, hydration, browser DOM/runtime equivalence.
+- Auto-merge candidates: independent existing text-node edits, disjoint existing element-attribute edits, explicit `id` / `data-frontier-key` element subtree additions or deletions, and same-parent reorders where all direct element siblings in the reordered range have explicit identity.
+- Review-only gaps: unkeyed structural edits, reorders mixed with unkeyed direct siblings or direct comments, `<script>`, `<style>`, `<template>`, custom elements, slots, framework directives, hydration, browser DOM/runtime equivalence.
 - Claims: `autoMergeClaim`, `semanticEquivalenceClaim`, and `browserRuntimeEquivalenceClaim` remain false.

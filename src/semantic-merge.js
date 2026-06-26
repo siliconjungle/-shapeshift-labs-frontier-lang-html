@@ -74,6 +74,7 @@ function parseMergeTree(sourceText, sourcePath) {
   }
   if (lastIndex < sourceText.length) pushTextRecord(sourceText, lastIndex, sourceText.length, lineStarts, sourcePath, sourceHash, stack, records);
   finalizeOpenElements(stack, sourceText.length, lineStarts, sourcePath, sourceHash);
+  records.push(...childOrderRecords(records, sourceHash, sourcePath));
   const index = new Map(records.map((record) => [record.key, record]));
   return { records, index, sourceText, treeHash: hashSemanticValue({ kind: 'frontier.lang.html.merge.tree.v1', records: records.map(hashableRecord) }) };
 }
@@ -119,8 +120,9 @@ function pushTextRecord(sourceText, start, end, lineStarts, sourcePath, sourceHa
   const ordinal = nextOrdinal(parent, '#text');
   const path = [...parent.path, `#text[${ordinal}]`];
   const proofGaps = parent.proofGaps ?? [];
+  const parentIdentity = parent.record?.explicitIdentity === true ? parent.record.key : parent.path.join('/');
   records.push(compact({
-    key: `text#${path.join('/')}`,
+    key: `text#${parentIdentity}/#text[${ordinal}]`,
     kind: 'text',
     path,
     parentPath: parent.path,
@@ -137,8 +139,9 @@ function pushCommentRecord(token, offset, lineStarts, sourcePath, sourceHash, st
   const parent = stack.at(-1);
   const ordinal = nextOrdinal(parent, '#comment');
   const path = [...parent.path, `#comment[${ordinal}]`];
+  const parentIdentity = parent.record?.explicitIdentity === true ? parent.record.key : parent.path.join('/');
   records.push({
-    key: `comment#${path.join('/')}`,
+    key: `comment#${parentIdentity}/#comment[${ordinal}]`,
     kind: 'comment',
     path,
     parentPath: parent.path,
@@ -158,6 +161,29 @@ function changedRecords(baseIndex, currentIndex, side) {
     if ((before?.recordHash ?? '') === (after?.recordHash ?? '')) return [];
     return [{ side, key, before, after, kind: before && after ? 'update' : before ? 'delete' : 'add' }];
   });
+}
+
+function childOrderRecords(records, sourceHash, sourcePath) {
+  const groups = new Map();
+  for (const record of records) {
+    if (record.kind !== 'element' || record.explicitIdentity !== true) continue;
+    const parentKey = record.parentKey ?? '#document';
+    const group = groups.get(parentKey) ?? { parentKey, parentPath: record.parentPath, childKeys: [] };
+    group.childKeys.push(record.key);
+    groups.set(parentKey, group);
+  }
+  return [...groups.values()]
+    .filter((group) => group.childKeys.length > 1)
+    .map((group) => compact({
+      key: `child-order#${group.parentKey}`,
+      kind: 'child-order',
+      parentKey: group.parentKey === '#document' ? undefined : group.parentKey,
+      parentPath: group.parentPath,
+      childKeys: group.childKeys,
+      sourceHash,
+      sourcePath,
+      recordHash: hashSemanticValue({ kind: 'html.child-order', parentKey: group.parentKey, childKeys: group.childKeys })
+    }));
 }
 
 function proofGapConflicts(id, sourcePath, changes, trees) {
