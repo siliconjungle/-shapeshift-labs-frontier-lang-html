@@ -1,4 +1,5 @@
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
+import { parseHtmlSemanticRecords } from './parser-evidence.js';
 export { safeMergeHtmlSource } from './semantic-merge.js';
 
 const VoidTags = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
@@ -39,37 +40,25 @@ export function emitHtmlWithSourceMap(document, options = {}) {
 }
 
 export function parseHtmlSemanticTree(sourceText, options = {}) {
-  const lineStarts = computeLineStarts(sourceText);
-  const sourceHash = options.sourceHash ?? hashSemanticValue({ kind: 'frontier.lang.html.source.v1', sourceText });
-  const records = [];
-  const stack = [{ tagName: '#document', childCounts: new Map(), path: [] }];
-  const tokenPattern = /<!--[\s\S]*?-->|<!doctype[^>]*>|<\/?[A-Za-z][^>]*>/gi;
-  let match;
-  let lastIndex = 0;
-  while ((match = tokenPattern.exec(sourceText))) {
-    if (match.index > lastIndex) pushTextRecord(sourceText, lastIndex, match.index, lineStarts, sourceHash, stack, records);
-    const token = match[0];
-    if (token.startsWith('<!--')) pushCommentRecord(token, match.index, lineStarts, sourceHash, stack, records);
-    else if (/^<\//.test(token)) closeElement(token, stack);
-    else if (!/^<!doctype/i.test(token)) pushElementRecord(token, match.index, lineStarts, sourceHash, stack, records);
-    lastIndex = match.index + token.length;
-  }
-  if (lastIndex < sourceText.length) pushTextRecord(sourceText, lastIndex, sourceText.length, lineStarts, sourceHash, stack, records);
-  const proofGaps = records.flatMap((record) => record.proofGaps ?? []);
+  const parsed = parseHtmlSemanticRecords(sourceText, options);
+  const records = parsed.records;
+  const proofGaps = parsed.proofGaps;
   return {
     kind: 'frontier.lang.htmlSemanticTree',
     version: 1,
     sourcePath: options.sourcePath,
-    sourceHash,
+    sourceHash: parsed.sourceHash,
     records,
-    treeHash: hashSemanticValue({ kind: 'frontier.lang.htmlSemanticTree.records.v1', records: records.map(hashableHtmlRecord) }),
+    treeHash: parsed.treeHash,
     summary: {
       elements: records.filter((record) => record.kind === 'element').length,
       textNodes: records.filter((record) => record.kind === 'text').length,
       comments: records.filter((record) => record.kind === 'comment').length,
-      proofGaps: proofGaps.length
+      proofGaps: proofGaps.length,
+      parseErrors: parsed.parser.parseErrors.length
     },
-    proofGaps
+    proofGaps,
+    parser: parsed.parser
   };
 }
 

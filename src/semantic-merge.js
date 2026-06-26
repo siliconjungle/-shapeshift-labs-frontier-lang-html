@@ -1,4 +1,5 @@
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
+import { parseHtmlMergeTree } from './parser-evidence.js';
 import { structuralConflicts, structuralPatchPlan } from './semantic-merge-structure.js';
 
 const VoidTags = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
@@ -20,6 +21,7 @@ function safeMergeHtmlSource(input = {}) {
     head: changedRecords(trees.base.index, trees.head.index, 'head')
   };
   const conflicts = [
+    ...parserRecoveryConflicts(id, sourcePath, trees),
     ...proofGapConflicts(id, sourcePath, changes.worker, trees),
     ...proofGapConflicts(id, sourcePath, changes.head, trees),
     ...structuralConflicts(id, sourcePath, changes.worker, changes.head),
@@ -43,6 +45,7 @@ function singleSideMerge(id, sourcePath, base, current, operation) {
   const trees = { base: parseMergeTree(base, sourcePath), current: parseMergeTree(current, sourcePath) };
   const changes = changedRecords(trees.base.index, trees.current.index, 'current');
   const conflicts = [
+    ...parserRecoveryConflicts(id, sourcePath, trees),
     ...proofGapConflicts(id, sourcePath, changes, trees),
     ...structuralConflicts(id, sourcePath, changes)
   ];
@@ -55,28 +58,7 @@ function singleSideMerge(id, sourcePath, base, current, operation) {
 }
 
 function parseMergeTree(sourceText, sourcePath) {
-  const lineStarts = computeLineStarts(sourceText);
-  const sourceHash = hashSemanticValue({ kind: 'frontier.lang.html.merge.source.v1', sourceText });
-  const stack = [{ tagName: '#document', childCounts: new Map(), path: [], proofGaps: [] }];
-  const records = [];
-  const tokenPattern = /<!--[\s\S]*?-->|<!doctype[^>]*>|<\/?[A-Za-z][^>]*>/gi;
-  let match;
-  let lastIndex = 0;
-  while ((match = tokenPattern.exec(sourceText))) {
-    const gapText = sourceText.slice(lastIndex, match.index);
-    const structuralStart = gapText && !gapText.trim() ? lastIndex : match.index;
-    if (gapText.trim()) pushTextRecord(sourceText, lastIndex, match.index, lineStarts, sourcePath, sourceHash, stack, records);
-    const token = match[0];
-    if (token.startsWith('<!--')) pushCommentRecord(token, match.index, lineStarts, sourcePath, sourceHash, stack, records);
-    else if (/^<\//.test(token)) closeElement(token, match.index + token.length, lineStarts, sourcePath, sourceHash, stack);
-    else if (!/^<!doctype/i.test(token)) pushElementRecord(token, match.index, lineStarts, sourcePath, sourceHash, stack, records, structuralStart);
-    lastIndex = match.index + token.length;
-  }
-  if (lastIndex < sourceText.length) pushTextRecord(sourceText, lastIndex, sourceText.length, lineStarts, sourcePath, sourceHash, stack, records);
-  finalizeOpenElements(stack, sourceText.length, lineStarts, sourcePath, sourceHash);
-  records.push(...childOrderRecords(records, sourceHash, sourcePath));
-  const index = new Map(records.map((record) => [record.key, record]));
-  return { records, index, sourceText, treeHash: hashSemanticValue({ kind: 'frontier.lang.html.merge.tree.v1', records: records.map(hashableRecord) }) };
+  return parseHtmlMergeTree(sourceText, { sourcePath });
 }
 
 function pushElementRecord(token, offset, lineStarts, sourcePath, sourceHash, stack, records, structuralStart = offset) {
@@ -191,6 +173,12 @@ function proofGapConflicts(id, sourcePath, changes, trees) {
     const record = change.after ?? change.before;
     return (record?.proofGaps ?? []).map((gap) => conflict(id, sourcePath, 'html-proof-gap-blocked', gap.code, { recordKey: change.key, proofGap: gap }));
   });
+}
+
+function parserRecoveryConflicts(id, sourcePath, trees) {
+  return Object.entries(trees).flatMap(([side, tree]) => (tree.proofGaps ?? [])
+    .filter((gap) => gap.code === 'html-parser-recovery')
+    .map((gap) => conflict(id, sourcePath, 'html-parser-recovery-blocked', gap.code, { side, proofGap: gap })));
 }
 
 function overlapConflicts(id, sourcePath, workerChanges, headChanges) {

@@ -28,6 +28,21 @@ export interface HtmlSourceSpan {
   readonly endColumn: number;
 }
 
+export interface HtmlParserDiagnostic {
+  readonly code?: string;
+  readonly startLine?: number;
+  readonly startColumn?: number;
+  readonly endLine?: number;
+  readonly endColumn?: number;
+  readonly [key: string]: unknown;
+}
+
+export interface HtmlParserEvidence {
+  readonly name: 'parse5' | string;
+  readonly sourceCodeLocationInfo: boolean;
+  readonly parseErrors: readonly HtmlParserDiagnostic[];
+}
+
 export interface HtmlSourceRef {
   readonly semanticNodeId: string;
   readonly semanticNodeKind?: string;
@@ -97,17 +112,32 @@ export interface HtmlSemanticProofGap {
 
 export interface HtmlSemanticRecord {
   readonly kind: 'element' | 'text' | 'comment' | string;
+  readonly key?: string;
   readonly tagName?: string;
   readonly path: readonly string[];
+  readonly parentPath?: readonly string[];
+  readonly parentKey?: string;
   readonly ordinal?: number;
   readonly identityKey?: string;
+  readonly explicitIdentity?: boolean;
   readonly attributes?: Readonly<Record<string, string | boolean>>;
+  readonly attributeSpans?: Readonly<Record<string, HtmlSourceSpan>>;
   readonly classList?: readonly string[];
   readonly sourceSpan: HtmlSourceSpan;
+  readonly startTagSpan?: HtmlSourceSpan;
+  readonly endTagSpan?: HtmlSourceSpan;
+  readonly structuralSpan?: HtmlSourceSpan;
+  readonly fullSpan?: HtmlSourceSpan;
   readonly sourceHash: string;
+  readonly selfClosing?: boolean;
+  readonly rawStartTag?: string;
+  readonly rawEndTag?: string;
   readonly attributeHash?: string;
+  readonly recordHash?: string;
+  readonly fullHash?: string;
   readonly textHash?: string;
   readonly commentHash?: string;
+  readonly parser?: 'parse5' | string;
   readonly proofGaps?: readonly HtmlSemanticProofGap[];
 }
 
@@ -120,6 +150,7 @@ export interface HtmlSemanticTree {
   readonly treeHash: string;
   readonly summary: Readonly<Record<string, number>>;
   readonly proofGaps: readonly HtmlSemanticProofGap[];
+  readonly parser: HtmlParserEvidence;
 }
 
 export interface HtmlSemanticMergeEvidence {

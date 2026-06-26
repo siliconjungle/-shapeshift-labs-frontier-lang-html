@@ -59,8 +59,14 @@ const article = tree.records.find((record) => record.tagName === 'article');
 const input = tree.records.find((record) => record.tagName === 'input');
 assert.equal(tree.kind, 'frontier.lang.htmlSemanticTree');
 assert.equal(Boolean(tree.treeHash), true);
+assert.equal(tree.parser.name, 'parse5');
+assert.equal(tree.summary.parseErrors, 0);
 assert.equal(article.identityKey, 'todo-1');
 assert.equal(article.attributes['aria-live'], 'polite');
+assert.equal(article.parser, 'parse5');
+assert.equal(article.attributeSpans['data-frontier-key'].startLine, 2);
+assert.match(article.rawStartTag, /data-frontier-key="todo-1"/);
+assert.equal(article.fullSpan.endOffset > article.startTagSpan.endOffset, true);
 assert.deepEqual(tree.records.find((record) => record.tagName === 'main').classList, ['shell', 'app']);
 assert.equal(input.attributes.checked, true);
 assert.equal(tree.records.some((record) => record.kind === 'comment'), true);
@@ -74,6 +80,20 @@ assert.equal(evidence.status, 'needs-review');
 assert.equal(evidence.autoMergeClaim, false);
 assert.equal(evidence.semanticEquivalenceClaim, false);
 assert.equal(evidence.browserRuntimeEquivalenceClaim, false);
+
+const malformedTree = parseHtmlSemanticTree('<div id="a" id="b">Duplicate</div>\n', { sourcePath: 'bad.html' });
+assert.equal(malformedTree.parser.parseErrors.some((error) => error.code === 'duplicate-attribute'), true);
+assert.equal(malformedTree.proofGaps.some((gap) => gap.code === 'html-parser-recovery'), true);
+
+const malformedMerge = safeMergeHtmlSource({
+  id: 'html_parser_recovery_blocks_merge',
+  sourcePath: 'bad.html',
+  baseSourceText: '<div id="a" id="b">Duplicate</div>\n',
+  workerSourceText: '<div id="a" id="b">Changed</div>\n',
+  headSourceText: '<div id="a" id="b">Duplicate</div>\n'
+});
+assert.equal(malformedMerge.status, 'blocked');
+assert.equal(malformedMerge.conflicts.some((conflict) => conflict.code === 'html-parser-recovery-blocked'), true);
 
 const htmlMergeBase = [
   '<main id="app">',
