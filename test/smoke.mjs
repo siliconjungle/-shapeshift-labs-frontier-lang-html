@@ -134,3 +134,58 @@ const htmlRuntimeConflict = safeMergeHtmlSource({
 });
 assert.equal(htmlRuntimeConflict.status, 'blocked');
 assert.equal(htmlRuntimeConflict.conflicts.some((conflict) => conflict.code === 'html-proof-gap-blocked'), true);
+
+const htmlListBase = [
+  '<ul id="todos">',
+  '  <li data-frontier-key="a">A</li>',
+  '</ul>',
+  ''
+].join('\n');
+const htmlListHead = htmlListBase.replace('id="todos"', 'id="todos" class="list"');
+const htmlListAdd = safeMergeHtmlSource({
+  id: 'html_structural_add',
+  sourcePath: 'view.html',
+  baseSourceText: htmlListBase,
+  workerSourceText: [
+    '<ul id="todos">',
+    '  <li data-frontier-key="a">A</li>',
+    '  <li data-frontier-key="b">B</li>',
+    '</ul>',
+    ''
+  ].join('\n'),
+  headSourceText: htmlListHead
+});
+assert.equal(htmlListAdd.status, 'merged');
+assert.match(htmlListAdd.mergedSourceText, /class="list"/);
+assert.match(htmlListAdd.mergedSourceText, /data-frontier-key="b">B/);
+
+const htmlListDelete = safeMergeHtmlSource({
+  id: 'html_structural_delete',
+  sourcePath: 'view.html',
+  baseSourceText: htmlListBase,
+  workerSourceText: ['<ul id="todos">', '</ul>', ''].join('\n'),
+  headSourceText: htmlListHead
+});
+assert.equal(htmlListDelete.status, 'merged');
+assert.doesNotMatch(htmlListDelete.mergedSourceText, /data-frontier-key="a"/);
+assert.match(htmlListDelete.mergedSourceText, /class="list"/);
+
+const htmlSameKeyAddConflict = safeMergeHtmlSource({
+  id: 'html_same_key_add_conflict',
+  sourcePath: 'view.html',
+  baseSourceText: ['<ul id="todos">', '</ul>', ''].join('\n'),
+  workerSourceText: ['<ul id="todos">', '  <li data-frontier-key="b">B</li>', '</ul>', ''].join('\n'),
+  headSourceText: ['<ul id="todos">', '  <li data-frontier-key="b">Bee</li>', '</ul>', ''].join('\n')
+});
+assert.equal(htmlSameKeyAddConflict.status, 'blocked');
+assert.equal(htmlSameKeyAddConflict.conflicts.some((conflict) => conflict.code === 'html-structural-overlap-conflict' || conflict.code === 'html-record-conflict'), true);
+
+const htmlPathOnlyAddConflict = safeMergeHtmlSource({
+  id: 'html_path_only_add_conflict',
+  sourcePath: 'view.html',
+  baseSourceText: ['<ul id="todos">', '</ul>', ''].join('\n'),
+  workerSourceText: ['<ul id="todos">', '  <li>B</li>', '</ul>', ''].join('\n'),
+  headSourceText: ['<ul id="todos">', '</ul>', ''].join('\n')
+});
+assert.equal(htmlPathOnlyAddConflict.status, 'blocked');
+assert.equal(htmlPathOnlyAddConflict.conflicts.some((conflict) => conflict.code === 'html-structural-add-delete-unsupported'), true);

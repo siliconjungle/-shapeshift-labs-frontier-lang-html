@@ -4,4 +4,5 @@ await rm('dist', { recursive: true, force: true });
 await mkdir('dist', { recursive: true });
 await copyFile('src/index.js', 'dist/index.js');
 await copyFile('src/semantic-merge.js', 'dist/semantic-merge.js');
+await copyFile('src/semantic-merge-structure.js', 'dist/semantic-merge-structure.js');
 await copyFile('src/index.d.ts', 'dist/index.d.ts');

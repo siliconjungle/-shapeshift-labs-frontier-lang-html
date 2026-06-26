@@ -1,4 +1,5 @@
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
+import { structuralConflicts, structuralPatchPlan } from './semantic-merge-structure.js';
 
 const VoidTags = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
 const RuntimeBoundaryTags = new Set(['script', 'style', 'template', 'slot']);
@@ -21,12 +22,12 @@ function safeMergeHtmlSource(input = {}) {
   const conflicts = [
     ...proofGapConflicts(id, sourcePath, changes.worker, trees),
     ...proofGapConflicts(id, sourcePath, changes.head, trees),
-    ...unsupportedStructureConflicts(id, sourcePath, changes.worker),
-    ...unsupportedStructureConflicts(id, sourcePath, changes.head),
+    ...structuralConflicts(id, sourcePath, changes.worker, changes.head),
+    ...structuralConflicts(id, sourcePath, changes.head, changes.worker),
     ...overlapConflicts(id, sourcePath, changes.worker, changes.head)
   ];
   if (conflicts.length) return blocked(id, sourcePath, 'html-semantic-merge-conflict', conflicts);
-  const patch = patchPlan(id, sourcePath, changes.worker, trees.head.index);
+  const patch = structuralPatchPlan(id, sourcePath, changes.worker, trees.worker, trees.head);
   if (patch.conflicts.length) return blocked(id, sourcePath, 'html-semantic-merge-conflict', patch.conflicts);
   return merged(id, sourcePath, applyReplacements(head, patch.replacements), 'semantic-html-merge', {
     baseTreeHash: trees.base.treeHash,
@@ -41,7 +42,10 @@ function singleSideMerge(id, sourcePath, base, current, operation) {
   if (base === current) return merged(id, sourcePath, current, operation);
   const trees = { base: parseMergeTree(base, sourcePath), current: parseMergeTree(current, sourcePath) };
   const changes = changedRecords(trees.base.index, trees.current.index, 'current');
-  const conflicts = proofGapConflicts(id, sourcePath, changes, trees);
+  const conflicts = [
+    ...proofGapConflicts(id, sourcePath, changes, trees),
+    ...structuralConflicts(id, sourcePath, changes)
+  ];
   if (conflicts.length) return blocked(id, sourcePath, 'html-semantic-merge-conflict', conflicts);
   return merged(id, sourcePath, current, operation, {
     baseTreeHash: trees.base.treeHash,
@@ -59,19 +63,22 @@ function parseMergeTree(sourceText, sourcePath) {
   let match;
   let lastIndex = 0;
   while ((match = tokenPattern.exec(sourceText))) {
-    if (match.index > lastIndex) pushTextRecord(sourceText, lastIndex, match.index, lineStarts, sourcePath, sourceHash, stack, records);
+    const gapText = sourceText.slice(lastIndex, match.index);
+    const structuralStart = gapText && !gapText.trim() ? lastIndex : match.index;
+    if (gapText.trim()) pushTextRecord(sourceText, lastIndex, match.index, lineStarts, sourcePath, sourceHash, stack, records);
     const token = match[0];
     if (token.startsWith('<!--')) pushCommentRecord(token, match.index, lineStarts, sourcePath, sourceHash, stack, records);
-    else if (/^<\//.test(token)) closeElement(token, stack);
-    else if (!/^<!doctype/i.test(token)) pushElementRecord(token, match.index, lineStarts, sourcePath, sourceHash, stack, records);
+    else if (/^<\//.test(token)) closeElement(token, match.index + token.length, lineStarts, sourcePath, sourceHash, stack);
+    else if (!/^<!doctype/i.test(token)) pushElementRecord(token, match.index, lineStarts, sourcePath, sourceHash, stack, records, structuralStart);
     lastIndex = match.index + token.length;
   }
   if (lastIndex < sourceText.length) pushTextRecord(sourceText, lastIndex, sourceText.length, lineStarts, sourcePath, sourceHash, stack, records);
+  finalizeOpenElements(stack, sourceText.length, lineStarts, sourcePath, sourceHash);
   const index = new Map(records.map((record) => [record.key, record]));
-  return { records, index, treeHash: hashSemanticValue({ kind: 'frontier.lang.html.merge.tree.v1', records: records.map(hashableRecord) }) };
+  return { records, index, sourceText, treeHash: hashSemanticValue({ kind: 'frontier.lang.html.merge.tree.v1', records: records.map(hashableRecord) }) };
 }
 
-function pushElementRecord(token, offset, lineStarts, sourcePath, sourceHash, stack, records) {
+function pushElementRecord(token, offset, lineStarts, sourcePath, sourceHash, stack, records, structuralStart = offset) {
   const parsed = parseStartTag(token);
   if (!parsed) return;
   const parent = stack.at(-1);
@@ -79,22 +86,30 @@ function pushElementRecord(token, offset, lineStarts, sourcePath, sourceHash, st
   const path = [...parent.path, `${parsed.tagName}[${ordinal}]`];
   const proofGaps = [...parent.proofGaps, ...htmlProofGaps(parsed)];
   const sourceSpan = span(offset, offset + token.length, lineStarts, sourcePath);
+  const explicitIdentity = parsed.attributes.id !== undefined || parsed.attributes['data-frontier-key'] !== undefined;
   const identityKey = parsed.attributes.id ?? parsed.attributes['data-frontier-key'] ?? path.join('/');
-  records.push(compact({
+  const record = compact({
     key: `element#${identityKey}`,
     kind: 'element',
     tagName: parsed.tagName,
     path,
+    parentPath: parent.path,
+    parentKey: parent.record?.key,
     identityKey,
+    explicitIdentity,
     attributes: parsed.attributes,
     selfClosing: parsed.selfClosing,
     sourceSpan,
+    structuralSpan: span(structuralStart, offset + token.length, lineStarts, sourcePath),
+    fullSpan: span(offset, offset + token.length, lineStarts, sourcePath),
     sourceHash,
     tokenText: token,
     recordHash: hashSemanticValue({ kind: 'html.element', tagName: parsed.tagName, attributes: parsed.attributes, selfClosing: parsed.selfClosing }),
     proofGaps: proofGaps.length ? proofGaps : undefined
-  }));
-  if (!parsed.selfClosing && !VoidTags.has(parsed.tagName)) stack.push({ tagName: parsed.tagName, childCounts: new Map(), path, proofGaps });
+  });
+  records.push(record);
+  if (!parsed.selfClosing && !VoidTags.has(parsed.tagName)) stack.push({ tagName: parsed.tagName, childCounts: new Map(), path, proofGaps, record });
+  else finishElementRecord(record, offset + token.length, lineStarts, sourcePath, sourceHash);
 }
 
 function pushTextRecord(sourceText, start, end, lineStarts, sourcePath, sourceHash, stack, records) {
@@ -108,6 +123,8 @@ function pushTextRecord(sourceText, start, end, lineStarts, sourcePath, sourceHa
     key: `text#${path.join('/')}`,
     kind: 'text',
     path,
+    parentPath: parent.path,
+    parentKey: parent.record?.key,
     value,
     sourceSpan: span(start, end, lineStarts, sourcePath),
     sourceHash,
@@ -124,6 +141,8 @@ function pushCommentRecord(token, offset, lineStarts, sourcePath, sourceHash, st
     key: `comment#${path.join('/')}`,
     kind: 'comment',
     path,
+    parentPath: parent.path,
+    parentKey: parent.record?.key,
     value: token,
     sourceSpan: span(offset, offset + token.length, lineStarts, sourcePath),
     sourceHash,
@@ -148,15 +167,6 @@ function proofGapConflicts(id, sourcePath, changes, trees) {
   });
 }
 
-function unsupportedStructureConflicts(id, sourcePath, changes) {
-  return changes
-    .filter((change) => change.kind !== 'update')
-    .map((change) => conflict(id, sourcePath, 'html-structural-add-delete-unsupported', 'html-structural-add-delete-unsupported', {
-      recordKey: change.key,
-      changeKind: change.kind
-    }));
-}
-
 function overlapConflicts(id, sourcePath, workerChanges, headChanges) {
   const headByKey = new Map(headChanges.map((change) => [change.key, change]));
   return workerChanges.flatMap((workerChange) => {
@@ -175,31 +185,6 @@ function elementOverlapConflicts(id, sourcePath, workerChange, headChange) {
     workerValue: workerChange.after.attributes[attributeName],
     headValue: headChange.after.attributes[attributeName]
   }));
-}
-
-function patchPlan(id, sourcePath, workerChanges, headIndex) {
-  const conflicts = [];
-  const replacements = [];
-  for (const change of workerChanges) {
-    const headRecord = headIndex.get(change.key);
-    if (!headRecord) {
-      conflicts.push(conflict(id, sourcePath, 'html-head-record-missing', 'html-head-record-missing', { recordKey: change.key }));
-      continue;
-    }
-    if (change.after.kind === 'element') replacements.push(elementReplacement(change, headRecord));
-    else replacements.push({ start: headRecord.sourceSpan.startOffset, end: headRecord.sourceSpan.endOffset, text: change.after.value });
-  }
-  return { conflicts, replacements };
-}
-
-function elementReplacement(change, headRecord) {
-  const workerAttrs = attributeChanges(change.before.attributes, change.after.attributes);
-  const attributes = { ...headRecord.attributes };
-  for (const attr of workerAttrs) {
-    if (attr.after === undefined) delete attributes[attr.name];
-    else attributes[attr.name] = attr.after;
-  }
-  return { start: headRecord.sourceSpan.startOffset, end: headRecord.sourceSpan.endOffset, text: renderStartTag(headRecord.tagName, attributes, headRecord.selfClosing) };
 }
 
 function attributeChanges(before = {}, after = {}) {
@@ -257,11 +242,6 @@ function parseAttributes(text) {
   return result;
 }
 
-function renderStartTag(tagName, attributes, selfClosing) {
-  const attrs = Object.entries(attributes).sort(([left], [right]) => left.localeCompare(right)).map(([key, value]) => value === true ? ` ${key}` : ` ${key}="${escapeAttribute(value)}"`).join('');
-  return `<${tagName}${attrs}${selfClosing ? ' /' : ''}>`;
-}
-
 function htmlProofGaps(parsed) {
   const gaps = [];
   if (RuntimeBoundaryTags.has(parsed.tagName)) gaps.push(proofGap(`${parsed.tagName}-runtime-boundary`, `HTML <${parsed.tagName}> runtime/template semantics require host evidence.`));
@@ -270,20 +250,36 @@ function htmlProofGaps(parsed) {
   return gaps;
 }
 
-function closeElement(token, stack) {
+function closeElement(token, endOffset, lineStarts, sourcePath, sourceHash, stack) {
   const tagName = token.replace(/^<\//, '').replace(/>$/, '').trim().toLowerCase();
-  for (let index = stack.length - 1; index > 0; index -= 1) if (stack[index].tagName === tagName) { stack.length = index; return; }
+  for (let index = stack.length - 1; index > 0; index -= 1) {
+    if (stack[index].tagName === tagName) {
+      finishElementRecord(stack[index].record, endOffset, lineStarts, sourcePath, sourceHash);
+      stack.length = index;
+      return;
+    }
+  }
+}
+
+function finalizeOpenElements(stack, endOffset, lineStarts, sourcePath, sourceHash) {
+  for (let index = stack.length - 1; index > 0; index -= 1) finishElementRecord(stack[index].record, endOffset, lineStarts, sourcePath, sourceHash);
+}
+
+function finishElementRecord(record, endOffset, lineStarts, sourcePath, sourceHash) {
+  if (!record) return;
+  record.fullSpan = span(record.sourceSpan.startOffset, endOffset, lineStarts, sourcePath);
+  record.fullHash = hashSemanticValue({ kind: 'html.element.full', sourceHash, key: record.key, start: record.sourceSpan.startOffset, end: endOffset });
+  record.recordHash = hashSemanticValue({ kind: 'html.element', tagName: record.tagName, attributes: record.attributes, selfClosing: record.selfClosing });
 }
 
 function proofGap(code, summary) { return { code, status: 'not-claimed', summary, failClosed: true, semanticEquivalenceClaim: false }; }
 function nextOrdinal(parent, key) { const next = (parent.childCounts.get(key) ?? 0) + 1; parent.childCounts.set(key, next); return next; }
-function hashableRecord(record) { return { key: record.key, kind: record.kind, tagName: record.tagName, path: record.path, identityKey: record.identityKey, attributes: record.attributes, recordHash: record.recordHash, proofGaps: record.proofGaps?.map((gap) => gap.code) }; }
+function hashableRecord(record) { return { key: record.key, kind: record.kind, tagName: record.tagName, path: record.path, identityKey: record.identityKey, attributes: record.attributes, recordHash: record.recordHash, fullHash: record.fullHash, proofGaps: record.proofGaps?.map((gap) => gap.code) }; }
 function sameChange(left, right) { return (left.after?.recordHash ?? '') === (right.after?.recordHash ?? '') && left.kind === right.kind; }
 function changeSummary(change) { return { kind: change.kind, recordKind: change.after?.kind ?? change.before?.kind, recordHash: change.after?.recordHash }; }
 function span(start, end, lineStarts, path) { const from = positionAt(start, lineStarts); const to = positionAt(end, lineStarts); return { path, startOffset: start, endOffset: end, startLine: from.line, startColumn: from.column, endLine: to.line, endColumn: to.column }; }
 function positionAt(offset, lineStarts) { let line = 0; while (line + 1 < lineStarts.length && lineStarts[line + 1] <= offset) line += 1; return { line: line + 1, column: offset - lineStarts[line] + 1 }; }
 function computeLineStarts(text) { const starts = [0]; for (let index = 0; index < text.length; index += 1) if (text[index] === '\n') starts.push(index + 1); return starts; }
-function escapeAttribute(value) { return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function compact(record) { return Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined)); }
 function unique(values) { return [...new Set(values.filter((value) => value !== undefined && value !== null && String(value)))]; }
 
