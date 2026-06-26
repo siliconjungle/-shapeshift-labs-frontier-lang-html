@@ -124,6 +124,11 @@ assert.equal(htmlMerged.parserEvidence.parserBackedSourceSpans, true);
 assert.equal(htmlMerged.parserEvidence.parserBackedAttributeSpans, true);
 assert.equal(htmlMerged.parserEvidence.parserBackedTriviaSpans, true);
 assert.equal(htmlMerged.parserEvidence.parseErrors, 0);
+assert.equal(htmlMerged.identityEvidence.kind, 'frontier.lang.htmlSafeMergeIdentityEvidence');
+assert.equal(htmlMerged.identityEvidence.parserBackedStructuralSpans, true);
+assert.equal(htmlMerged.identityEvidence.structuralAddressability, true);
+assert.equal(htmlMerged.identityEvidence.sides.base.explicitIdentityElementCount, 2);
+assert.equal(htmlMerged.identityEvidence.sides.base.pathOnlyIdentityElementCount, 1);
 
 const htmlAttributeMergeBase = [
   '<button data-frontier-key="save" type="button">Save</button>',
@@ -239,6 +244,8 @@ const htmlListReorder = safeMergeHtmlSource({
 });
 assert.equal(htmlListReorder.status, 'merged');
 assert.match(htmlListReorder.mergedSourceText, /data-frontier-key="c">C<\/li>\n  <li data-frontier-key="a">A<\/li>\n  <li data-frontier-key="b" class="done">Bee<\/li>/);
+assert.equal(htmlListReorder.identityEvidence.sides.base.childOrderRecordCount, 1);
+assert.equal(htmlListReorder.identityEvidence.sides.worker.explicitIdentityKeys.includes('element#c'), true);
 
 const htmlUnkeyedReorderConflict = safeMergeHtmlSource({
   id: 'html_unkeyed_child_reorder_conflict',

@@ -201,6 +201,7 @@ export interface HtmlSafeMergeResult {
   readonly workerChangedRecords?: number;
   readonly headChangedRecords?: number;
   readonly parserEvidence?: HtmlSafeMergeParserEvidence;
+  readonly identityEvidence?: HtmlSafeMergeIdentityEvidence;
 }
 
 export interface HtmlSafeMergeParserEvidence {
@@ -223,6 +224,30 @@ export interface HtmlSafeMergeParserSideEvidence {
   readonly parserBackedTriviaSpans: boolean;
   readonly parseErrors: number;
   readonly recordCount: number;
+}
+
+export interface HtmlSafeMergeIdentityEvidence {
+  readonly kind: 'frontier.lang.htmlSafeMergeIdentityEvidence';
+  readonly version: 1;
+  readonly explicitIdentityAvailable: boolean;
+  readonly parserBackedStructuralSpans: boolean;
+  readonly structuralAddressability: boolean;
+  readonly pathOnlyIdentityElements: number;
+  readonly runtimeBoundaryElements: number;
+  readonly frameworkBoundaryElements: number;
+  readonly sides: Readonly<Record<string, HtmlSafeMergeIdentitySideEvidence>>;
+}
+
+export interface HtmlSafeMergeIdentitySideEvidence {
+  readonly elementCount: number;
+  readonly explicitIdentityElementCount: number;
+  readonly pathOnlyIdentityElementCount: number;
+  readonly structuralAddressableElementCount: number;
+  readonly childOrderRecordCount: number;
+  readonly parserBackedStructuralSpans: boolean;
+  readonly explicitIdentityKeys: readonly string[];
+  readonly runtimeBoundaryElementCount: number;
+  readonly frameworkBoundaryElementCount: number;
 }
 
 export interface HtmlSafeMergeInput {

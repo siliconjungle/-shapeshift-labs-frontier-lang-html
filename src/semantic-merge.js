@@ -1,5 +1,6 @@
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
 import { parseHtmlMergeTree } from './parser-evidence.js';
+import { mergeIdentityEvidence } from './safe-merge-identity-evidence.js';
 import { mergeParserEvidence } from './safe-merge-parser-evidence.js';
 import { structuralConflicts, structuralPatchPlan } from './semantic-merge-structure.js';
 
@@ -30,16 +31,18 @@ function safeMergeHtmlSource(input = {}) {
     ...overlapConflicts(id, sourcePath, changes.worker, changes.head)
   ];
   const parserEvidence = mergeParserEvidence(trees);
-  if (conflicts.length) return blocked(id, sourcePath, 'html-semantic-merge-conflict', conflicts, { parserEvidence });
+  const identityEvidence = mergeIdentityEvidence(trees);
+  if (conflicts.length) return blocked(id, sourcePath, 'html-semantic-merge-conflict', conflicts, { parserEvidence, identityEvidence });
   const patch = structuralPatchPlan(id, sourcePath, changes.worker, trees.worker, trees.head);
-  if (patch.conflicts.length) return blocked(id, sourcePath, 'html-semantic-merge-conflict', patch.conflicts, { parserEvidence });
+  if (patch.conflicts.length) return blocked(id, sourcePath, 'html-semantic-merge-conflict', patch.conflicts, { parserEvidence, identityEvidence });
   return merged(id, sourcePath, applyReplacements(head, patch.replacements), 'semantic-html-merge', {
     baseTreeHash: trees.base.treeHash,
     workerTreeHash: trees.worker.treeHash,
     headTreeHash: trees.head.treeHash,
     workerChangedRecords: changes.worker.length,
     headChangedRecords: changes.head.length,
-    parserEvidence
+    parserEvidence,
+    identityEvidence
   });
 }
 
@@ -53,12 +56,14 @@ function singleSideMerge(id, sourcePath, base, current, operation) {
     ...structuralConflicts(id, sourcePath, changes)
   ];
   const parserEvidence = mergeParserEvidence(trees);
-  if (conflicts.length) return blocked(id, sourcePath, 'html-semantic-merge-conflict', conflicts, { parserEvidence });
+  const identityEvidence = mergeIdentityEvidence(trees);
+  if (conflicts.length) return blocked(id, sourcePath, 'html-semantic-merge-conflict', conflicts, { parserEvidence, identityEvidence });
   return merged(id, sourcePath, current, operation, {
     baseTreeHash: trees.base.treeHash,
     mergedTreeHash: trees.current.treeHash,
     changedRecords: changes.length,
-    parserEvidence
+    parserEvidence,
+    identityEvidence
   });
 }
 
