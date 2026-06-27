@@ -2,6 +2,15 @@ import assert from 'node:assert/strict';
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
 import { safeMergeHtmlSource } from '../dist/index.js';
 
+function runtimeEvidence(reasonCode, boundary, label) {
+  return {
+    runtimeCommand: `node test/html-runtime/${label}.mjs`,
+    runtimeProbeId: `html:${reasonCode}:${boundary}`,
+    runtimeEvidenceHash: hashSemanticValue(`html-runtime-evidence:${reasonCode}:${boundary}:${label}`),
+    runtimeSignals: ['html-resource-loading-runtime']
+  };
+}
+
 const linkBase = '<link data-frontier-key="theme" rel="stylesheet" href="/a.css">\n';
 const linkWorker = '<link data-frontier-key="theme" rel="stylesheet" href="/b.css">\n';
 const linkProof = {
@@ -16,7 +25,8 @@ const linkProof = {
   baseSourceHash: hashSemanticValue(linkBase),
   workerSourceHash: hashSemanticValue(linkWorker),
   headSourceHash: hashSemanticValue(linkBase),
-  outputSourceHash: hashSemanticValue(linkWorker)
+  outputSourceHash: hashSemanticValue(linkWorker),
+  ...runtimeEvidence('resource-loading-runtime-boundary', 'html-resource-loading-attribute', 'link-resource')
 };
 const linkBlocked = safeMergeHtmlSource({ id: 'html_link_resource_blocked', sourcePath: 'view.html', baseSourceText: linkBase, workerSourceText: linkWorker, headSourceText: linkBase });
 assert.equal(linkBlocked.status, 'blocked');
@@ -56,7 +66,8 @@ const mediaProof = {
   baseSourceHash: hashSemanticValue(mediaBase),
   workerSourceHash: hashSemanticValue(mediaWorker),
   headSourceHash: hashSemanticValue(mediaBase),
-  outputSourceHash: hashSemanticValue(mediaWorker)
+  outputSourceHash: hashSemanticValue(mediaWorker),
+  ...runtimeEvidence('resource-loading-runtime-boundary', 'html-resource-loading-attribute', 'media-resource')
 };
 const mediaBlocked = safeMergeHtmlSource({ id: 'html_media_resource_blocked', sourcePath: 'view.html', baseSourceText: mediaBase, workerSourceText: mediaWorker, headSourceText: mediaBase });
 assert.equal(mediaBlocked.status, 'blocked');

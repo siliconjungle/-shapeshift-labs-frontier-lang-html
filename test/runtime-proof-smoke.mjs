@@ -2,6 +2,11 @@ import assert from 'node:assert/strict';
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
 import { safeMergeHtmlSource } from '../dist/index.js';
 
+const RuntimeSignalMatchers = [['iframe-srcdoc', 'html-iframe-srcdoc-runtime'], ['iframe', 'html-iframe-runtime'], ['event-handler', 'html-event-handler-runtime'], ['inline-style', 'html-inline-style-runtime'], ['style', 'html-inline-style-runtime'], ['form-submitter', 'html-form-submitter-runtime'], ['form-control', 'html-form-control-runtime'], ['form', 'html-form-runtime'], ['resource-loading', 'html-resource-loading-runtime'], ['script', 'html-script-runtime']];
+function runtimeEvidence(reasonCode, boundary, label) { const scope = boundary ?? 'source'; return { runtimeCommand: `node test/html-runtime/${label}.mjs`, runtimeProbeId: `html:${reasonCode}:${scope}`, runtimeEvidenceHash: hashSemanticValue(`html-runtime-evidence:${reasonCode}:${scope}:${label}`), runtimeSignals: [runtimeSignal(reasonCode, boundary)] }; }
+function runtimeSignal(reasonCode, boundary) { const text = `${reasonCode ?? ''} ${boundary ?? ''}`.toLowerCase(); return RuntimeSignalMatchers.find(([needle]) => text.includes(needle))?.[1] ?? 'html-browser-runtime'; }
+function withoutRuntimeEvidence(proof) { const { runtimeCommand, runtimeProbeId, runtimeEvidenceHash, runtimeSignals, ...sourceOnlyProof } = proof; return sourceOnlyProof; }
+
 const base = '<script>window.value = 1;</script>\n<h1>Todo</h1>\n';
 const worker = '<script>window.value = 2;</script>\n<h1>Todo</h1>\n';
 const head = '<script>window.value = 1;</script>\n<h1>Todos</h1>\n';
@@ -17,8 +22,20 @@ const proof = {
   baseSourceHash: hashSemanticValue(base),
   workerSourceHash: hashSemanticValue(worker),
   headSourceHash: hashSemanticValue(head),
-  outputSourceHash: hashSemanticValue(output)
+  outputSourceHash: hashSemanticValue(output),
+  ...runtimeEvidence('script-runtime-boundary', undefined, 'script')
 };
+
+const sourceOnlyProof = safeMergeHtmlSource({
+  id: 'html_runtime_source_only_proof',
+  sourcePath: 'view.html',
+  baseSourceText: base,
+  workerSourceText: worker,
+  headSourceText: head,
+  htmlBrowserRuntimeProofs: [withoutRuntimeEvidence(proof)]
+});
+assert.equal(sourceOnlyProof.status, 'blocked');
+assert.equal(sourceOnlyProof.conflicts.some((conflict) => conflict.details.reasonCode === 'script-runtime-boundary'), true);
 
 const wrongOutputProof = safeMergeHtmlSource({
   id: 'html_runtime_wrong_output_proof',
@@ -55,6 +72,8 @@ assert.equal(proven.browserRuntimeEquivalenceClaim, true);
 assert.equal(proven.admission.browserRuntimeEquivalenceClaim, true);
 assert.equal(proven.htmlRuntimeProofs.length, 1);
 assert.equal(proven.htmlRuntimeProofs[0].reasonCode, 'script-runtime-boundary');
+assert.equal(proven.htmlRuntimeProofs[0].runtimeEvidenceBound, true);
+assert.equal(proven.htmlRuntimeProofs[0].runtimeSignals.includes('html-script-runtime'), true);
 assert.equal(proven.mergedSourceText, output);
 
 const oneSided = safeMergeHtmlSource({
@@ -88,7 +107,8 @@ const eventProof = {
   baseSourceHash: hashSemanticValue(eventBase),
   workerSourceHash: hashSemanticValue(eventWorker),
   headSourceHash: hashSemanticValue(eventHead),
-  outputSourceHash: hashSemanticValue(eventOutput)
+  outputSourceHash: hashSemanticValue(eventOutput),
+  ...runtimeEvidence('event-handler-runtime-boundary', 'html-event-handler-attribute', 'event-handler')
 };
 
 const eventBlocked = safeMergeHtmlSource({
@@ -159,7 +179,8 @@ const submitterProof = {
   baseSourceHash: hashSemanticValue(submitterBase),
   workerSourceHash: hashSemanticValue(submitterWorker),
   headSourceHash: hashSemanticValue(submitterBase),
-  outputSourceHash: hashSemanticValue(submitterWorker)
+  outputSourceHash: hashSemanticValue(submitterWorker),
+  ...runtimeEvidence('form-submitter-runtime-boundary', 'html-form-submitter-runtime-attribute', 'form-submitter')
 };
 const submitterBlocked = safeMergeHtmlSource({ id: 'html_form_submitter_blocked', sourcePath: 'view.html', baseSourceText: submitterBase, workerSourceText: submitterWorker, headSourceText: submitterBase });
 assert.equal(submitterBlocked.status, 'blocked');
@@ -196,7 +217,8 @@ const controlProof = {
   baseSourceHash: hashSemanticValue(controlBase),
   workerSourceHash: hashSemanticValue(controlWorker),
   headSourceHash: hashSemanticValue(controlBase),
-  outputSourceHash: hashSemanticValue(controlWorker)
+  outputSourceHash: hashSemanticValue(controlWorker),
+  ...runtimeEvidence('form-control-runtime-boundary', 'html-form-control-runtime-attribute', 'form-control')
 };
 const controlProven = safeMergeHtmlSource({ id: 'html_form_control_checked_proven', sourcePath: 'view.html', baseSourceText: controlBase, workerSourceText: controlWorker, headSourceText: controlBase, htmlRuntimeBoundaryProofs: [controlProof] });
 assert.equal(controlProven.status, 'merged');
@@ -220,7 +242,8 @@ const styleProof = {
   baseSourceHash: hashSemanticValue(styleBase),
   workerSourceHash: hashSemanticValue(styleWorker),
   headSourceHash: hashSemanticValue(styleHead),
-  outputSourceHash: hashSemanticValue(styleOutput)
+  outputSourceHash: hashSemanticValue(styleOutput),
+  ...runtimeEvidence('inline-style-runtime-boundary', 'html-inline-style-attribute', 'inline-style')
 };
 
 const styleBlocked = safeMergeHtmlSource({ id: 'html_inline_style_blocked', sourcePath: 'view.html', baseSourceText: styleBase, workerSourceText: styleWorker, headSourceText: styleHead });
@@ -254,7 +277,8 @@ const iframeProof = {
   baseSourceHash: hashSemanticValue(iframeBase),
   workerSourceHash: hashSemanticValue(iframeWorker),
   headSourceHash: hashSemanticValue(iframeHead),
-  outputSourceHash: hashSemanticValue(iframeOutput)
+  outputSourceHash: hashSemanticValue(iframeOutput),
+  ...runtimeEvidence('iframe-runtime-boundary', 'html-iframe-runtime-attribute', 'iframe')
 };
 const iframeBlocked = safeMergeHtmlSource({ id: 'html_iframe_runtime_blocked', sourcePath: 'view.html', baseSourceText: iframeBase, workerSourceText: iframeWorker, headSourceText: iframeHead });
 assert.equal(iframeBlocked.status, 'blocked');
@@ -271,7 +295,7 @@ const srcdocBase = '<iframe data-frontier-key="preview" srcdoc="&lt;p&gt;A&lt;/p
 const srcdocWorker = '<iframe data-frontier-key="preview" srcdoc="&lt;p&gt;B&lt;/p&gt;"></iframe>\n';
 const srcdocHead = '<iframe aria-label="Preview" data-frontier-key="preview" srcdoc="&lt;p&gt;A&lt;/p&gt;"></iframe>\n';
 const srcdocOutput = '<iframe aria-label="Preview" data-frontier-key="preview" srcdoc="&lt;p&gt;B&lt;/p&gt;"></iframe>\n';
-const srcdocProof = { ...iframeProof, id: 'proof_html_iframe_srcdoc_runtime', reasonCode: 'iframe-srcdoc-runtime-boundary', boundary: 'html-iframe-srcdoc-attribute', boundaryAttributes: ['srcdoc'], baseSourceHash: hashSemanticValue(srcdocBase), workerSourceHash: hashSemanticValue(srcdocWorker), headSourceHash: hashSemanticValue(srcdocHead), outputSourceHash: hashSemanticValue(srcdocOutput) };
+const srcdocProof = { ...iframeProof, id: 'proof_html_iframe_srcdoc_runtime', reasonCode: 'iframe-srcdoc-runtime-boundary', boundary: 'html-iframe-srcdoc-attribute', boundaryAttributes: ['srcdoc'], baseSourceHash: hashSemanticValue(srcdocBase), workerSourceHash: hashSemanticValue(srcdocWorker), headSourceHash: hashSemanticValue(srcdocHead), outputSourceHash: hashSemanticValue(srcdocOutput), ...runtimeEvidence('iframe-srcdoc-runtime-boundary', 'html-iframe-srcdoc-attribute', 'iframe-srcdoc') };
 const srcdocBlocked = safeMergeHtmlSource({ id: 'html_iframe_srcdoc_blocked', sourcePath: 'view.html', baseSourceText: srcdocBase, workerSourceText: srcdocWorker, headSourceText: srcdocHead });
 assert.equal(srcdocBlocked.status, 'blocked');
 assert.equal(srcdocBlocked.conflicts.some((conflict) => conflict.details.reasonCode === 'iframe-srcdoc-runtime-boundary'), true);

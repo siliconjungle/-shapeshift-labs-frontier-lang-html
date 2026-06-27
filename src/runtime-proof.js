@@ -52,7 +52,8 @@ function isHtmlRuntimeProofForGap(proof, item, sourcePath, binding, hash) {
     htmlProofSourceMatches(proof, 'base', binding.base, hash) &&
     htmlProofSourceMatches(proof, 'worker', binding.worker, hash) &&
     htmlProofSourceMatches(proof, 'head', binding.head, hash) &&
-    htmlProofSourceMatches(proof, 'output', binding.output, hash);
+    htmlProofSourceMatches(proof, 'output', binding.output, hash) &&
+    htmlRuntimeEvidenceMetadata(proof, item.gap.code, item.boundary) !== undefined;
 }
 
 function htmlProofSourceMatches(proof, role, sourceText, hash) {
@@ -68,6 +69,7 @@ function htmlProofSourceMatches(proof, role, sourceText, hash) {
 }
 
 function htmlRuntimeProofRecord(proof, item, sourcePath, binding, hash) {
+  const runtimeEvidence = htmlRuntimeEvidenceMetadata(proof, item.gap.code, item.boundary);
   return {
     id: proof.id,
     kind: proof.kind,
@@ -83,8 +85,107 @@ function htmlRuntimeProofRecord(proof, item, sourcePath, binding, hash) {
     baseSourceHash: hash?.(binding.base),
     workerSourceHash: hash?.(binding.worker),
     headSourceHash: hash?.(binding.head),
-    outputSourceHash: hash?.(binding.output)
+    outputSourceHash: hash?.(binding.output),
+    runtimeCommand: runtimeEvidence?.command,
+    runtimeProbeId: runtimeEvidence?.probeId,
+    runtimeEvidenceHash: runtimeEvidence?.evidenceHash,
+    runtimeSignals: runtimeEvidence?.signals,
+    requiredRuntimeSignals: runtimeEvidence?.requiredSignals,
+    runtimeEvidenceBound: runtimeEvidence !== undefined,
+    browserRuntimeEquivalenceClaim: true,
+    browserRenderEquivalenceClaim: false,
+    semanticEquivalenceClaim: false,
+    autoMergeClaim: false
   };
+}
+
+function htmlRuntimeEvidenceMetadata(proof, reasonCode, boundary) {
+  const requiredSignals = requiredHtmlRuntimeSignals(reasonCode, boundary);
+  const signals = runtimeSignals(proof);
+  const command = firstString(
+    proof.runtimeCommand,
+    proof.browserCommand,
+    proof.command,
+    proof.commandId,
+    proof.probeCommand,
+    proof.evidence?.command,
+    proof.runtimeEvidence?.command,
+    proof.browserEvidence?.command
+  );
+  const probeId = firstString(
+    proof.runtimeProbeId,
+    proof.browserProbeId,
+    proof.probeId,
+    proof.probe?.id,
+    proof.evidence?.probeId,
+    proof.runtimeEvidence?.probeId,
+    proof.browserEvidence?.probeId
+  );
+  const evidenceHash = firstString(
+    proof.runtimeEvidenceHash,
+    proof.browserEvidenceHash,
+    proof.evidenceHash,
+    proof.domEvidenceHash,
+    proof.renderEvidenceHash,
+    proof.hydrationEvidenceHash,
+    proof.resourceEvidenceHash,
+    proof.evidence?.hash,
+    proof.evidence?.evidenceHash,
+    proof.runtimeEvidence?.hash,
+    proof.runtimeEvidence?.evidenceHash,
+    proof.browserEvidence?.hash,
+    proof.browserEvidence?.evidenceHash
+  );
+  const hasRequiredSignal = requiredSignals.some((signal) => signals.includes(signal));
+  if (!command || !probeId || !evidenceHash || !hasRequiredSignal) return undefined;
+  return { command, probeId, evidenceHash, signals, requiredSignals };
+}
+
+function runtimeSignals(proof) {
+  return uniqueStrings([
+    ...signalsFromValue(proof.runtimeSignals),
+    ...signalsFromValue(proof.browserSignals),
+    ...signalsFromValue(proof.evidenceSignals),
+    ...signalsFromValue(proof.probeSignals),
+    ...signalsFromValue(proof.evidence?.signals),
+    ...signalsFromValue(proof.runtimeEvidence?.signals),
+    ...signalsFromValue(proof.browserEvidence?.signals)
+  ]);
+}
+
+function signalsFromValue(value) {
+  if (typeof value === 'string' && value.length > 0) return [value];
+  if (Array.isArray(value)) return value.filter((item) => typeof item === 'string' && item.length > 0);
+  if (value && typeof value === 'object') return Object.keys(value).filter((key) => value[key] === true || value[key] === 'passed');
+  return [];
+}
+
+function requiredHtmlRuntimeSignals(reasonCode, boundary) {
+  const text = `${reasonCode ?? ''} ${boundary ?? ''}`.toLowerCase();
+  if (text.includes('iframe-srcdoc')) return ['html-iframe-srcdoc-runtime', 'iframe-srcdoc-runtime'];
+  if (text.includes('iframe')) return ['html-iframe-runtime', 'iframe-runtime'];
+  if (text.includes('event-handler')) return ['html-event-handler-runtime', 'event-handler-runtime'];
+  if (text.includes('inline-style') || text.includes('style')) return ['html-inline-style-runtime', 'html-style-runtime', 'css-cascade-runtime'];
+  if (text.includes('form-submitter')) return ['html-form-submitter-runtime', 'form-submitter-runtime', 'html-form-runtime'];
+  if (text.includes('form-control')) return ['html-form-control-runtime', 'form-control-runtime', 'html-form-runtime'];
+  if (text.includes('form')) return ['html-form-runtime', 'form-runtime'];
+  if (text.includes('document-base')) return ['html-document-base-runtime', 'document-base-runtime'];
+  if (text.includes('document-metadata')) return ['html-document-metadata-runtime', 'document-metadata-runtime'];
+  if (text.includes('resource-loading')) return ['html-resource-loading-runtime', 'resource-loading-runtime'];
+  if (text.includes('template')) return ['html-template-runtime', 'template-runtime'];
+  if (text.includes('slot')) return ['html-slot-runtime', 'slot-runtime'];
+  if (text.includes('custom-element')) return ['html-custom-element-runtime', 'custom-element-runtime'];
+  if (text.includes('framework-directive')) return ['html-framework-directive-runtime', 'framework-directive-runtime'];
+  if (text.includes('script')) return ['html-script-runtime', 'script-runtime', 'browser-script-runtime'];
+  return ['html-browser-runtime', 'browser-runtime'];
+}
+
+function firstString(...values) {
+  return values.find((value) => typeof value === 'string' && value.length > 0);
+}
+
+function uniqueStrings(values) {
+  return [...new Set(values)];
 }
 
 function conflict(id, sourcePath, code, reasonCode, details = {}) {

@@ -32,7 +32,44 @@ export interface HtmlBrowserRuntimeProof {
   readonly sources?: Readonly<Record<string, string>>;
   readonly sourceHashes?: Readonly<Record<string, string>>;
   readonly hashes?: Readonly<Record<string, string>>;
+  readonly runtimeCommand?: string;
+  readonly browserCommand?: string;
+  readonly command?: string;
+  readonly commandId?: string;
+  readonly probeCommand?: string;
+  readonly runtimeProbeId?: string;
+  readonly browserProbeId?: string;
+  readonly probeId?: string;
+  readonly probe?: HtmlBrowserRuntimeProofProbeRef;
+  readonly runtimeEvidenceHash?: string;
+  readonly browserEvidenceHash?: string;
+  readonly evidenceHash?: string;
+  readonly domEvidenceHash?: string;
+  readonly renderEvidenceHash?: string;
+  readonly hydrationEvidenceHash?: string;
+  readonly resourceEvidenceHash?: string;
+  readonly runtimeSignals?: HtmlBrowserRuntimeProofSignals;
+  readonly browserSignals?: HtmlBrowserRuntimeProofSignals;
+  readonly evidenceSignals?: HtmlBrowserRuntimeProofSignals;
+  readonly probeSignals?: HtmlBrowserRuntimeProofSignals;
+  readonly evidence?: HtmlBrowserRuntimeProofEvidenceRef;
+  readonly runtimeEvidence?: HtmlBrowserRuntimeProofEvidenceRef;
+  readonly browserEvidence?: HtmlBrowserRuntimeProofEvidenceRef;
 }
+
+export interface HtmlBrowserRuntimeProofProbeRef {
+  readonly id?: string;
+}
+
+export interface HtmlBrowserRuntimeProofEvidenceRef {
+  readonly command?: string;
+  readonly probeId?: string;
+  readonly hash?: string;
+  readonly evidenceHash?: string;
+  readonly signals?: HtmlBrowserRuntimeProofSignals;
+}
+
+export type HtmlBrowserRuntimeProofSignals = string | readonly string[] | Readonly<Record<string, boolean | 'passed' | string>>;
 
 export interface HtmlBrowserRuntimeProofRecord {
   readonly id?: string;
@@ -50,4 +87,14 @@ export interface HtmlBrowserRuntimeProofRecord {
   readonly workerSourceHash?: string;
   readonly headSourceHash?: string;
   readonly outputSourceHash?: string;
+  readonly runtimeCommand?: string;
+  readonly runtimeProbeId?: string;
+  readonly runtimeEvidenceHash?: string;
+  readonly runtimeSignals?: readonly string[];
+  readonly requiredRuntimeSignals?: readonly string[];
+  readonly runtimeEvidenceBound: boolean;
+  readonly browserRuntimeEquivalenceClaim: boolean;
+  readonly browserRenderEquivalenceClaim: boolean;
+  readonly semanticEquivalenceClaim: boolean;
+  readonly autoMergeClaim: boolean;
 }
