@@ -118,20 +118,23 @@ function attributeRuntimeChecks(changes) {
   return changes.flatMap((change) => {
     const before = change.before?.kind === 'element' ? change.before.attributes ?? {} : {};
     const after = change.after?.kind === 'element' ? change.after.attributes ?? {} : {};
+    const tagName = String(change.after?.tagName ?? change.before?.tagName ?? '').toLowerCase();
     return attributeChanges(before, after)
-      .flatMap((attribute) => attributeRuntimeCheck(change, attribute));
+      .flatMap((attribute) => attributeRuntimeCheck(change, attribute, tagName));
   });
 }
 
-function attributeRuntimeCheck(change, attribute) {
+function attributeRuntimeCheck(change, attribute, tagName) {
   const name = attribute.name.toLowerCase();
-  const spec = runtimeAttributeSpec(name);
+  const spec = runtimeAttributeSpec(name, tagName);
   return spec ? [{ change, attributeName: name, boundaryAttributes: [name], ...spec, gap: proofGap(spec.reasonCode, spec.summary) }] : [];
 }
 
-function runtimeAttributeSpec(name) {
+function runtimeAttributeSpec(name, tagName) {
   if (/^on[\w:.-]+$/i.test(name)) return { boundary: 'html-event-handler-attribute', reasonCode: 'event-handler-runtime-boundary', summary: 'HTML event handler attributes execute in the browser runtime and require source-bound host evidence.' };
   if (name === 'style') return { boundary: 'html-inline-style-attribute', reasonCode: 'inline-style-runtime-boundary', summary: 'HTML inline style attributes affect browser cascade and rendering and require source-bound host evidence.' };
+  if (tagName === 'iframe' && name === 'srcdoc') return { boundary: 'html-iframe-srcdoc-attribute', reasonCode: 'iframe-srcdoc-runtime-boundary', summary: 'HTML iframe srcdoc attributes define nested browsing-context content and require source-bound host evidence.' };
+  if (tagName === 'iframe' && IframeRuntimeAttributes.has(name)) return { boundary: 'html-iframe-runtime-attribute', reasonCode: 'iframe-runtime-boundary', summary: 'HTML iframe runtime attributes affect nested browsing-context execution and require source-bound host evidence.' };
   return undefined;
 }
 
@@ -215,5 +218,7 @@ function proofGap(code, summary) { return { code, status: 'not-claimed', summary
 function sameChange(left, right) { return (left.after?.recordHash ?? '') === (right.after?.recordHash ?? '') && left.kind === right.kind; }
 function changeSummary(change) { return { kind: change.kind, recordKind: change.after?.kind ?? change.before?.kind, recordHash: change.after?.recordHash }; }
 function unique(values) { return [...new Set(values.filter((value) => value !== undefined && value !== null && String(value)))]; }
+
+const IframeRuntimeAttributes = new Set(['allow', 'allowfullscreen', 'allowpaymentrequest', 'credentialless', 'csp', 'fetchpriority', 'loading', 'name', 'referrerpolicy', 'sandbox', 'src']);
 
 export { safeMergeHtmlSource };

@@ -178,3 +178,50 @@ assert.equal(styleProven.mergedSourceText, styleOutput);
 const nonStyleAttributeOnStyledElement = safeMergeHtmlSource({ id: 'html_inline_style_non_style_attribute', sourcePath: 'view.html', baseSourceText: styleBase, workerSourceText: styleBase.replace('data-frontier-key="card"', 'data-frontier-key="card" role="region"'), headSourceText: styleBase.replace('Card</div>', 'Panel</div>') });
 assert.equal(nonStyleAttributeOnStyledElement.status, 'merged');
 assert.equal(nonStyleAttributeOnStyledElement.browserRuntimeEquivalenceClaim, false);
+
+const iframeBase = '<iframe data-frontier-key="preview" src="/a.html" title="Preview"></iframe>\n';
+const iframeWorker = '<iframe data-frontier-key="preview" src="/b.html" title="Preview"></iframe>\n';
+const iframeHead = '<iframe class="embed" data-frontier-key="preview" src="/a.html" title="Preview"></iframe>\n';
+const iframeOutput = '<iframe class="embed" data-frontier-key="preview" src="/b.html" title="Preview"></iframe>\n';
+const iframeProof = {
+  id: 'proof_html_iframe_runtime',
+  kind: 'html-source-bound-runtime-boundary-proof',
+  status: 'passed',
+  sourcePath: 'view.html',
+  reasonCode: 'iframe-runtime-boundary',
+  side: 'worker',
+  boundary: 'html-iframe-runtime-attribute',
+  boundaryAttributes: ['src'],
+  baseSourceHash: hashSemanticValue(iframeBase),
+  workerSourceHash: hashSemanticValue(iframeWorker),
+  headSourceHash: hashSemanticValue(iframeHead),
+  outputSourceHash: hashSemanticValue(iframeOutput)
+};
+const iframeBlocked = safeMergeHtmlSource({ id: 'html_iframe_runtime_blocked', sourcePath: 'view.html', baseSourceText: iframeBase, workerSourceText: iframeWorker, headSourceText: iframeHead });
+assert.equal(iframeBlocked.status, 'blocked');
+assert.equal(iframeBlocked.conflicts.some((conflict) => conflict.details.reasonCode === 'iframe-runtime-boundary'), true);
+const iframeWrongBoundaryProof = safeMergeHtmlSource({ id: 'html_iframe_runtime_wrong_boundary', sourcePath: 'view.html', baseSourceText: iframeBase, workerSourceText: iframeWorker, headSourceText: iframeHead, htmlRuntimeBoundaryProofs: [{ ...iframeProof, boundary: 'html-inline-style-attribute' }] });
+assert.equal(iframeWrongBoundaryProof.status, 'blocked');
+const iframeProven = safeMergeHtmlSource({ id: 'html_iframe_runtime_proven', sourcePath: 'view.html', baseSourceText: iframeBase, workerSourceText: iframeWorker, headSourceText: iframeHead, htmlRuntimeBoundaryProofs: [iframeProof] });
+assert.equal(iframeProven.status, 'merged');
+assert.equal(iframeProven.htmlRuntimeProofs[0].boundary, 'html-iframe-runtime-attribute');
+assert.equal(iframeProven.htmlRuntimeProofs[0].attributeName, 'src');
+assert.equal(iframeProven.mergedSourceText, iframeOutput);
+
+const srcdocBase = '<iframe data-frontier-key="preview" srcdoc="&lt;p&gt;A&lt;/p&gt;"></iframe>\n';
+const srcdocWorker = '<iframe data-frontier-key="preview" srcdoc="&lt;p&gt;B&lt;/p&gt;"></iframe>\n';
+const srcdocHead = '<iframe aria-label="Preview" data-frontier-key="preview" srcdoc="&lt;p&gt;A&lt;/p&gt;"></iframe>\n';
+const srcdocOutput = '<iframe aria-label="Preview" data-frontier-key="preview" srcdoc="&lt;p&gt;B&lt;/p&gt;"></iframe>\n';
+const srcdocProof = { ...iframeProof, id: 'proof_html_iframe_srcdoc_runtime', reasonCode: 'iframe-srcdoc-runtime-boundary', boundary: 'html-iframe-srcdoc-attribute', boundaryAttributes: ['srcdoc'], baseSourceHash: hashSemanticValue(srcdocBase), workerSourceHash: hashSemanticValue(srcdocWorker), headSourceHash: hashSemanticValue(srcdocHead), outputSourceHash: hashSemanticValue(srcdocOutput) };
+const srcdocBlocked = safeMergeHtmlSource({ id: 'html_iframe_srcdoc_blocked', sourcePath: 'view.html', baseSourceText: srcdocBase, workerSourceText: srcdocWorker, headSourceText: srcdocHead });
+assert.equal(srcdocBlocked.status, 'blocked');
+assert.equal(srcdocBlocked.conflicts.some((conflict) => conflict.details.reasonCode === 'iframe-srcdoc-runtime-boundary'), true);
+const srcdocProven = safeMergeHtmlSource({ id: 'html_iframe_srcdoc_proven', sourcePath: 'view.html', baseSourceText: srcdocBase, workerSourceText: srcdocWorker, headSourceText: srcdocHead, htmlRuntimeBoundaryProofs: [srcdocProof] });
+assert.equal(srcdocProven.status, 'merged');
+assert.equal(srcdocProven.htmlRuntimeProofs[0].boundary, 'html-iframe-srcdoc-attribute');
+assert.equal(srcdocProven.htmlRuntimeProofs[0].attributeName, 'srcdoc');
+assert.equal(srcdocProven.mergedSourceText, srcdocOutput);
+const iframeNonRuntimeBase = '<section id="preview"><iframe data-frontier-key="preview" src="/a.html" title="Preview"></iframe><h2>Preview</h2></section>\n';
+const nonRuntimeAttributeOnIframe = safeMergeHtmlSource({ id: 'html_iframe_non_runtime_attribute', sourcePath: 'view.html', baseSourceText: iframeNonRuntimeBase, workerSourceText: iframeNonRuntimeBase.replace('title="Preview"', 'title="Embedded preview"'), headSourceText: iframeNonRuntimeBase.replace('<h2>Preview</h2>', '<h2>Live preview</h2>') });
+assert.equal(nonRuntimeAttributeOnIframe.status, 'merged');
+assert.equal(nonRuntimeAttributeOnIframe.browserRuntimeEquivalenceClaim, false);
