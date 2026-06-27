@@ -5,7 +5,13 @@ function admitHtmlRuntimeProofs({ id, sourcePath, input, proofGaps, binding, has
   for (const item of proofGaps) {
     const proof = proofs.find((candidate) => isHtmlRuntimeProofForGap(candidate, item, sourcePath, binding, hash));
     if (proof) admitted.push(htmlRuntimeProofRecord(proof, item, sourcePath, binding, hash));
-    else conflicts.push(conflict(id, sourcePath, 'html-proof-gap-blocked', item.gap.code, { recordKey: item.change.key, proofGap: item.gap }));
+    else conflicts.push(conflict(id, sourcePath, 'html-proof-gap-blocked', item.gap.code, {
+      recordKey: item.change.key,
+      boundary: item.boundary,
+      attributeName: item.attributeName,
+      boundaryAttributes: item.boundaryAttributes,
+      proofGap: item.gap
+    }));
   }
   return { proofs: admitted, conflicts };
 }
@@ -41,7 +47,7 @@ function isHtmlRuntimeProofForGap(proof, item, sourcePath, binding, hash) {
     proofCoversValue(proof.reasonCode, proof.reasonCodes, item.gap.code) &&
     proofCoversValue(proof.side, proof.sides, item.change.side) &&
     proofCoversRecordOrBoundary(proof, item) &&
-    proofCoversOptionalValue(proof.boundary, proof.boundaries, item.boundary) &&
+    proofCoversOptionalBoundary(proof.boundary, proof.boundaries, item.boundary) &&
     proofCoversOptionalValue(proof.attributeName, proof.attributeNames ?? proof.boundaryAttributes ?? proof.changedBoundaryAttributes, item.attributeName) &&
     htmlProofSourceMatches(proof, 'base', binding.base, hash) &&
     htmlProofSourceMatches(proof, 'worker', binding.worker, hash) &&
@@ -92,6 +98,12 @@ function proofCoversRecordOrBoundary(proof, item) {
 
 function proofCoversOptionalValue(value, values, expected) {
   return expected === undefined || proofCoversValue(value, values, expected);
+}
+
+function proofCoversOptionalBoundary(value, values, expected) {
+  if (expected === undefined) return true;
+  if (value === undefined && values === undefined) return true;
+  return proofCoversValue(value, values, expected);
 }
 
 function proofCoversValue(value, values, expected) { return value === expected || (Array.isArray(values) && values.includes(expected)); }

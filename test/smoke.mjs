@@ -3,6 +3,7 @@ import { actionNode, capabilityNode, createDocument, entityNode, typeNode } from
 import { createHtmlSemanticMergeEvidence, emitHtml, emitHtmlWithSourceMap, parseHtmlSemanticTree, renderHtmlAst, renderHtmlAstWithSourceMap, safeMergeHtmlSource, toHtmlAst } from '../dist/index.js';
 import './runtime-proof-smoke.mjs';
 import './resource-runtime-proof-smoke.mjs';
+import './structural-runtime-proof-smoke.mjs';
 
 const document = createDocument({ id: 'doc', name: 'TodoHtml', nodes: [
   typeNode({ id: 'type_input', name: 'TodoInput', fields: [{ id: 'field_title', name: 'title', type: 'Text' }] }),

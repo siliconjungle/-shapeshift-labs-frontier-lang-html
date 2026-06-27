@@ -108,8 +108,36 @@ function changedRecords(baseIndex, currentIndex, side) {
 function proofGapChecks(changes) {
   return changes.flatMap((change) => {
     const record = change.after ?? change.before;
-    return (record?.proofGaps ?? []).map((gap) => ({ change, gap }));
+    return (record?.proofGaps ?? []).map((gap) => ({ change, ...proofGapBoundaryMetadata(change, gap), gap }));
   });
+}
+
+function proofGapBoundaryMetadata(change, gap) {
+  const reasonCode = gap?.code;
+  const record = change.after ?? change.before;
+  if (reasonCode === 'script-runtime-boundary') return { boundary: 'html-script-runtime' };
+  if (reasonCode === 'style-runtime-boundary') return { boundary: 'html-style-runtime' };
+  if (reasonCode === 'template-runtime-boundary') return { boundary: 'html-template-runtime' };
+  if (reasonCode === 'slot-runtime-boundary') return { boundary: 'html-slot-runtime' };
+  if (reasonCode === 'custom-element-runtime-boundary') return { boundary: 'html-custom-element-runtime' };
+  if (reasonCode === 'framework-directive-boundary') {
+    const boundaryAttributes = changedFrameworkDirectiveAttributes(change);
+    return compactRecord({
+      boundary: 'html-framework-directive',
+      boundaryAttributes,
+      attributeName: boundaryAttributes.length === 1 ? boundaryAttributes[0] : undefined
+    });
+  }
+  if (record?.kind === 'element') return { boundary: `html-${record.tagName}-runtime` };
+  return {};
+}
+
+function changedFrameworkDirectiveAttributes(change) {
+  const before = change.before?.kind === 'element' ? change.before.attributes ?? {} : {};
+  const after = change.after?.kind === 'element' ? change.after.attributes ?? {} : {};
+  const changed = attributeChanges(before, after).map((attribute) => attribute.name).filter(isFrameworkDirectiveAttribute);
+  if (changed.length) return unique(changed);
+  return unique([...Object.keys(before), ...Object.keys(after)].filter(isFrameworkDirectiveAttribute));
 }
 
 function runtimeProofChecks(changes) {
@@ -251,6 +279,8 @@ function proofGap(code, summary) { return { code, status: 'not-claimed', summary
 function sameChange(left, right) { return (left.after?.recordHash ?? '') === (right.after?.recordHash ?? '') && left.kind === right.kind; }
 function changeSummary(change) { return { kind: change.kind, recordKind: change.after?.kind ?? change.before?.kind, recordHash: change.after?.recordHash }; }
 function unique(values) { return [...new Set(values.filter((value) => value !== undefined && value !== null && String(value)))]; }
+function isFrameworkDirectiveAttribute(name) { return String(name ?? '').startsWith('@') || String(name ?? '').startsWith(':') || String(name ?? '').startsWith('v-') || String(name ?? '').startsWith('x-'); }
+function compactRecord(record) { return Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined)); }
 
 const IframeRuntimeAttributes = new Set(['allow', 'allowfullscreen', 'allowpaymentrequest', 'credentialless', 'csp', 'fetchpriority', 'loading', 'name', 'referrerpolicy', 'sandbox', 'src']);
 const FormRuntimeAttributes = new Set(['accept-charset', 'action', 'autocomplete', 'enctype', 'method', 'novalidate', 'target']);
