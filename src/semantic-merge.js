@@ -1,11 +1,9 @@
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
 import { parseHtmlMergeTree } from './parser-evidence.js';
+import { admitHtmlRuntimeProofs } from './runtime-proof.js';
 import { mergeIdentityEvidence } from './safe-merge-identity-evidence.js';
 import { mergeParserEvidence } from './safe-merge-parser-evidence.js';
 import { structuralConflicts, structuralPatchPlan } from './semantic-merge-structure.js';
-
-const VoidTags = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
-const RuntimeBoundaryTags = new Set(['script', 'style', 'template', 'slot']);
 
 function safeMergeHtmlSource(input = {}) {
   const id = String(input.id ?? 'html_safe_merge');
@@ -14,135 +12,85 @@ function safeMergeHtmlSource(input = {}) {
   const worker = input.workerSourceText ?? base;
   const head = input.headSourceText ?? base;
   if (typeof base !== 'string' || typeof worker !== 'string' || typeof head !== 'string') return blocked(id, sourcePath, 'html-source-text-missing');
-  if (worker === head) return singleSideMerge(id, sourcePath, base, worker, 'worker-head-identical');
-  if (worker === base) return singleSideMerge(id, sourcePath, base, head, 'worker-unchanged');
-  if (head === base) return singleSideMerge(id, sourcePath, base, worker, 'head-unchanged');
+  if (worker === head) return singleSideMerge(id, sourcePath, base, worker, 'worker-head-identical', input, 'worker', worker, head);
+  if (worker === base) return singleSideMerge(id, sourcePath, base, head, 'worker-unchanged', input, 'head', worker, head);
+  if (head === base) return singleSideMerge(id, sourcePath, base, worker, 'head-unchanged', input, 'worker', worker, head);
   const trees = { base: parseMergeTree(base, sourcePath), worker: parseMergeTree(worker, sourcePath), head: parseMergeTree(head, sourcePath) };
   const changes = {
     worker: changedRecords(trees.base.index, trees.worker.index, 'worker'),
     head: changedRecords(trees.base.index, trees.head.index, 'head')
   };
-  const conflicts = [
-    ...parserRecoveryConflicts(id, sourcePath, trees),
-    ...proofGapConflicts(id, sourcePath, changes.worker, trees),
-    ...proofGapConflicts(id, sourcePath, changes.head, trees),
+  const parserConflicts = parserRecoveryConflicts(id, sourcePath, trees);
+  const structuralMergeConflicts = [
     ...structuralConflicts(id, sourcePath, changes.worker, changes.head),
     ...structuralConflicts(id, sourcePath, changes.head, changes.worker),
     ...overlapConflicts(id, sourcePath, changes.worker, changes.head)
   ];
+  const patch = structuralPatchPlan(id, sourcePath, changes.worker, trees.worker, trees.head);
+  const mergedSourceText = patch.conflicts.length ? undefined : applyReplacements(head, patch.replacements);
+  const runtimeAdmission = admitHtmlRuntimeProofs({
+    id,
+    sourcePath,
+    input,
+    proofGaps: proofGapChecks([...changes.worker, ...changes.head]),
+    binding: { base, worker, head, output: mergedSourceText },
+    hash: hashSemanticValue
+  });
+  const conflicts = [
+    ...parserConflicts,
+    ...runtimeAdmission.conflicts,
+    ...structuralMergeConflicts,
+    ...patch.conflicts
+  ];
   const parserEvidence = mergeParserEvidence(trees);
   const identityEvidence = mergeIdentityEvidence(trees);
-  if (conflicts.length) return blocked(id, sourcePath, 'html-semantic-merge-conflict', conflicts, { parserEvidence, identityEvidence });
-  const patch = structuralPatchPlan(id, sourcePath, changes.worker, trees.worker, trees.head);
-  if (patch.conflicts.length) return blocked(id, sourcePath, 'html-semantic-merge-conflict', patch.conflicts, { parserEvidence, identityEvidence });
-  return merged(id, sourcePath, applyReplacements(head, patch.replacements), 'semantic-html-merge', {
+  if (conflicts.length) return blocked(id, sourcePath, 'html-semantic-merge-conflict', conflicts, { parserEvidence, identityEvidence, htmlRuntimeProofs: runtimeAdmission.proofs });
+  return merged(id, sourcePath, mergedSourceText, 'semantic-html-merge', {
     baseTreeHash: trees.base.treeHash,
     workerTreeHash: trees.worker.treeHash,
     headTreeHash: trees.head.treeHash,
     workerChangedRecords: changes.worker.length,
     headChangedRecords: changes.head.length,
     parserEvidence,
-    identityEvidence
+    identityEvidence,
+    htmlRuntimeProofs: runtimeAdmission.proofs,
+    browserRuntimeEquivalenceClaim: runtimeAdmission.proofs.length > 0
   });
 }
 
-function singleSideMerge(id, sourcePath, base, current, operation) {
+function singleSideMerge(id, sourcePath, base, current, operation, input, side, worker, head) {
   if (base === current) return merged(id, sourcePath, current, operation);
-  const trees = { base: parseMergeTree(base, sourcePath), current: parseMergeTree(current, sourcePath) };
-  const changes = changedRecords(trees.base.index, trees.current.index, 'current');
+  const trees = { base: parseMergeTree(base, sourcePath), [side]: parseMergeTree(current, sourcePath) };
+  const changes = changedRecords(trees.base.index, trees[side].index, side);
+  const runtimeAdmission = admitHtmlRuntimeProofs({
+    id,
+    sourcePath,
+    input,
+    proofGaps: proofGapChecks(changes),
+    binding: { base, worker, head, output: current },
+    hash: hashSemanticValue
+  });
   const conflicts = [
     ...parserRecoveryConflicts(id, sourcePath, trees),
-    ...proofGapConflicts(id, sourcePath, changes, trees),
+    ...runtimeAdmission.conflicts,
     ...structuralConflicts(id, sourcePath, changes)
   ];
   const parserEvidence = mergeParserEvidence(trees);
   const identityEvidence = mergeIdentityEvidence(trees);
-  if (conflicts.length) return blocked(id, sourcePath, 'html-semantic-merge-conflict', conflicts, { parserEvidence, identityEvidence });
+  if (conflicts.length) return blocked(id, sourcePath, 'html-semantic-merge-conflict', conflicts, { parserEvidence, identityEvidence, htmlRuntimeProofs: runtimeAdmission.proofs });
   return merged(id, sourcePath, current, operation, {
     baseTreeHash: trees.base.treeHash,
-    mergedTreeHash: trees.current.treeHash,
+    mergedTreeHash: trees[side].treeHash,
     changedRecords: changes.length,
     parserEvidence,
-    identityEvidence
+    identityEvidence,
+    htmlRuntimeProofs: runtimeAdmission.proofs,
+    browserRuntimeEquivalenceClaim: runtimeAdmission.proofs.length > 0
   });
 }
 
 function parseMergeTree(sourceText, sourcePath) {
   return parseHtmlMergeTree(sourceText, { sourcePath });
-}
-
-function pushElementRecord(token, offset, lineStarts, sourcePath, sourceHash, stack, records, structuralStart = offset) {
-  const parsed = parseStartTag(token);
-  if (!parsed) return;
-  const parent = stack.at(-1);
-  const ordinal = nextOrdinal(parent, parsed.tagName);
-  const path = [...parent.path, `${parsed.tagName}[${ordinal}]`];
-  const proofGaps = [...parent.proofGaps, ...htmlProofGaps(parsed)];
-  const sourceSpan = span(offset, offset + token.length, lineStarts, sourcePath);
-  const explicitIdentity = parsed.attributes.id !== undefined || parsed.attributes['data-frontier-key'] !== undefined;
-  const identityKey = parsed.attributes.id ?? parsed.attributes['data-frontier-key'] ?? path.join('/');
-  const record = compact({
-    key: `element#${identityKey}`,
-    kind: 'element',
-    tagName: parsed.tagName,
-    path,
-    parentPath: parent.path,
-    parentKey: parent.record?.key,
-    identityKey,
-    explicitIdentity,
-    attributes: parsed.attributes,
-    selfClosing: parsed.selfClosing,
-    sourceSpan,
-    structuralSpan: span(structuralStart, offset + token.length, lineStarts, sourcePath),
-    fullSpan: span(offset, offset + token.length, lineStarts, sourcePath),
-    sourceHash,
-    tokenText: token,
-    recordHash: hashSemanticValue({ kind: 'html.element', tagName: parsed.tagName, attributes: parsed.attributes, selfClosing: parsed.selfClosing }),
-    proofGaps: proofGaps.length ? proofGaps : undefined
-  });
-  records.push(record);
-  if (!parsed.selfClosing && !VoidTags.has(parsed.tagName)) stack.push({ tagName: parsed.tagName, childCounts: new Map(), path, proofGaps, record });
-  else finishElementRecord(record, offset + token.length, lineStarts, sourcePath, sourceHash);
-}
-
-function pushTextRecord(sourceText, start, end, lineStarts, sourcePath, sourceHash, stack, records) {
-  const value = sourceText.slice(start, end);
-  if (!value.trim()) return;
-  const parent = stack.at(-1);
-  const ordinal = nextOrdinal(parent, '#text');
-  const path = [...parent.path, `#text[${ordinal}]`];
-  const proofGaps = parent.proofGaps ?? [];
-  const parentIdentity = parent.record?.explicitIdentity === true ? parent.record.key : parent.path.join('/');
-  records.push(compact({
-    key: `text#${parentIdentity}/#text[${ordinal}]`,
-    kind: 'text',
-    path,
-    parentPath: parent.path,
-    parentKey: parent.record?.key,
-    value,
-    sourceSpan: span(start, end, lineStarts, sourcePath),
-    sourceHash,
-    recordHash: hashSemanticValue({ kind: 'html.text', value }),
-    proofGaps: proofGaps.length ? proofGaps : undefined
-  }));
-}
-
-function pushCommentRecord(token, offset, lineStarts, sourcePath, sourceHash, stack, records) {
-  const parent = stack.at(-1);
-  const ordinal = nextOrdinal(parent, '#comment');
-  const path = [...parent.path, `#comment[${ordinal}]`];
-  const parentIdentity = parent.record?.explicitIdentity === true ? parent.record.key : parent.path.join('/');
-  records.push({
-    key: `comment#${parentIdentity}/#comment[${ordinal}]`,
-    kind: 'comment',
-    path,
-    parentPath: parent.path,
-    parentKey: parent.record?.key,
-    value: token,
-    sourceSpan: span(offset, offset + token.length, lineStarts, sourcePath),
-    sourceHash,
-    recordHash: hashSemanticValue({ kind: 'html.comment', value: token })
-  });
 }
 
 function changedRecords(baseIndex, currentIndex, side) {
@@ -155,33 +103,10 @@ function changedRecords(baseIndex, currentIndex, side) {
   });
 }
 
-function childOrderRecords(records, sourceHash, sourcePath) {
-  const groups = new Map();
-  for (const record of records) {
-    if (record.kind !== 'element' || record.explicitIdentity !== true) continue;
-    const parentKey = record.parentKey ?? '#document';
-    const group = groups.get(parentKey) ?? { parentKey, parentPath: record.parentPath, childKeys: [] };
-    group.childKeys.push(record.key);
-    groups.set(parentKey, group);
-  }
-  return [...groups.values()]
-    .filter((group) => group.childKeys.length > 1)
-    .map((group) => compact({
-      key: `child-order#${group.parentKey}`,
-      kind: 'child-order',
-      parentKey: group.parentKey === '#document' ? undefined : group.parentKey,
-      parentPath: group.parentPath,
-      childKeys: group.childKeys,
-      sourceHash,
-      sourcePath,
-      recordHash: hashSemanticValue({ kind: 'html.child-order', parentKey: group.parentKey, childKeys: group.childKeys })
-    }));
-}
-
-function proofGapConflicts(id, sourcePath, changes, trees) {
+function proofGapChecks(changes) {
   return changes.flatMap((change) => {
     const record = change.after ?? change.before;
-    return (record?.proofGaps ?? []).map((gap) => conflict(id, sourcePath, 'html-proof-gap-blocked', gap.code, { recordKey: change.key, proofGap: gap }));
+    return (record?.proofGaps ?? []).map((gap) => ({ change, gap }));
   });
 }
 
@@ -235,6 +160,7 @@ function blocked(id, sourcePath, reasonCode, conflicts = [], extra = {}) {
 }
 
 function result(id, sourcePath, status, body) {
+  const browserRuntimeEquivalenceClaim = status === 'merged' && body.browserRuntimeEquivalenceClaim === true;
   return {
     kind: 'frontier.lang.htmlSafeMerge',
     version: 1,
@@ -243,9 +169,16 @@ function result(id, sourcePath, status, body) {
     status,
     autoMergeClaim: false,
     semanticEquivalenceClaim: false,
-    browserRuntimeEquivalenceClaim: false,
+    browserRuntimeEquivalenceClaim,
     ...body,
-    admission: { status: status === 'merged' ? 'auto-merge-candidate' : 'blocked', action: status === 'merged' ? 'apply-html' : 'human-review', reviewRequired: status !== 'merged', reasonCodes: unique((body.conflicts ?? []).map((item) => item.details.reasonCode)) }
+    admission: {
+      status: status === 'merged' ? 'auto-merge-candidate' : 'blocked',
+      action: status === 'merged' ? 'apply-html' : 'human-review',
+      reviewRequired: status !== 'merged',
+      reasonCodes: unique((body.conflicts ?? []).map((item) => item.details.reasonCode)),
+      browserRuntimeEquivalenceClaim: browserRuntimeEquivalenceClaim || undefined,
+      htmlBrowserRuntimeProofs: body.htmlRuntimeProofs?.length ? body.htmlRuntimeProofs : undefined
+    }
   };
 }
 
@@ -253,58 +186,8 @@ function conflict(id, sourcePath, code, reasonCode, details = {}) {
   return { code, gateId: 'html-semantic-merge', sourcePath, details: { reasonCode, conflictKey: `html#${id}#${reasonCode}#${details.recordKey ?? sourcePath ?? 'source'}`, ...details } };
 }
 
-function parseStartTag(token) {
-  const match = /^<([A-Za-z][\w:-]*)([\s\S]*?)\/?>$/.exec(token);
-  if (!match) return undefined;
-  return { tagName: match[1].toLowerCase(), attributes: parseAttributes(match[2] ?? ''), selfClosing: /\/>$/.test(token) };
-}
-
-function parseAttributes(text) {
-  const result = {};
-  const pattern = /([:@A-Za-z_][\w:.-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
-  for (const match of text.matchAll(pattern)) result[match[1]] = match[2] ?? match[3] ?? match[4] ?? true;
-  return result;
-}
-
-function htmlProofGaps(parsed) {
-  const gaps = [];
-  if (RuntimeBoundaryTags.has(parsed.tagName)) gaps.push(proofGap(`${parsed.tagName}-runtime-boundary`, `HTML <${parsed.tagName}> runtime/template semantics require host evidence.`));
-  if (parsed.tagName.includes('-')) gaps.push(proofGap('custom-element-runtime-boundary', 'Custom element upgrade and lifecycle semantics require browser/runtime evidence.'));
-  if (Object.keys(parsed.attributes).some((key) => key.startsWith('@') || key.startsWith(':') || key.startsWith('v-') || key.startsWith('x-'))) gaps.push(proofGap('framework-directive-boundary', 'Framework directive semantics require framework-specific evidence.'));
-  return gaps;
-}
-
-function closeElement(token, endOffset, lineStarts, sourcePath, sourceHash, stack) {
-  const tagName = token.replace(/^<\//, '').replace(/>$/, '').trim().toLowerCase();
-  for (let index = stack.length - 1; index > 0; index -= 1) {
-    if (stack[index].tagName === tagName) {
-      finishElementRecord(stack[index].record, endOffset, lineStarts, sourcePath, sourceHash);
-      stack.length = index;
-      return;
-    }
-  }
-}
-
-function finalizeOpenElements(stack, endOffset, lineStarts, sourcePath, sourceHash) {
-  for (let index = stack.length - 1; index > 0; index -= 1) finishElementRecord(stack[index].record, endOffset, lineStarts, sourcePath, sourceHash);
-}
-
-function finishElementRecord(record, endOffset, lineStarts, sourcePath, sourceHash) {
-  if (!record) return;
-  record.fullSpan = span(record.sourceSpan.startOffset, endOffset, lineStarts, sourcePath);
-  record.fullHash = hashSemanticValue({ kind: 'html.element.full', sourceHash, key: record.key, start: record.sourceSpan.startOffset, end: endOffset });
-  record.recordHash = hashSemanticValue({ kind: 'html.element', tagName: record.tagName, attributes: record.attributes, selfClosing: record.selfClosing });
-}
-
-function proofGap(code, summary) { return { code, status: 'not-claimed', summary, failClosed: true, semanticEquivalenceClaim: false }; }
-function nextOrdinal(parent, key) { const next = (parent.childCounts.get(key) ?? 0) + 1; parent.childCounts.set(key, next); return next; }
-function hashableRecord(record) { return { key: record.key, kind: record.kind, tagName: record.tagName, path: record.path, identityKey: record.identityKey, attributes: record.attributes, recordHash: record.recordHash, fullHash: record.fullHash, proofGaps: record.proofGaps?.map((gap) => gap.code) }; }
 function sameChange(left, right) { return (left.after?.recordHash ?? '') === (right.after?.recordHash ?? '') && left.kind === right.kind; }
 function changeSummary(change) { return { kind: change.kind, recordKind: change.after?.kind ?? change.before?.kind, recordHash: change.after?.recordHash }; }
-function span(start, end, lineStarts, path) { const from = positionAt(start, lineStarts); const to = positionAt(end, lineStarts); return { path, startOffset: start, endOffset: end, startLine: from.line, startColumn: from.column, endLine: to.line, endColumn: to.column }; }
-function positionAt(offset, lineStarts) { let line = 0; while (line + 1 < lineStarts.length && lineStarts[line + 1] <= offset) line += 1; return { line: line + 1, column: offset - lineStarts[line] + 1 }; }
-function computeLineStarts(text) { const starts = [0]; for (let index = 0; index < text.length; index += 1) if (text[index] === '\n') starts.push(index + 1); return starts; }
-function compact(record) { return Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined)); }
 function unique(values) { return [...new Set(values.filter((value) => value !== undefined && value !== null && String(value)))]; }
 
 export { safeMergeHtmlSource };

@@ -232,11 +232,11 @@ const merge = safeMergeHtmlSource({
 });
 ```
 
-`sourceMap.mappings` links emitted element blocks back to Frontier Lang semantic node ids. `createHtmlSemanticMergeEvidence` records element identity, attributes, class lists, child/text/comment source spans, stable hashes, and fail-closed proof gaps for runtime-sensitive HTML surfaces. `safeMergeHtmlSource` admits independent text, attribute, explicit-key element subtree, and explicit-key same-parent child-order edits when source spans, element identity, and proof gaps are clean; unkeyed structure and runtime-sensitive regions remain review-only.
+`sourceMap.mappings` links emitted element blocks back to Frontier Lang semantic node ids. `createHtmlSemanticMergeEvidence` records element identity, attributes, class lists, child/text/comment source spans, stable hashes, and fail-closed proof gaps for runtime-sensitive HTML surfaces. `safeMergeHtmlSource` admits independent text, attribute, explicit-key element subtree, and explicit-key same-parent child-order edits when source spans, element identity, and proof gaps are clean. Runtime-sensitive regions still block by default, but a host can attach an `html-source-bound-browser-runtime-proof` / `html-browser-runtime-proof` that is bound to the exact source path, reason, side, record key, and base/worker/head/output source hashes to admit that specific change.
 
 ## Support Boundary
 
-- Ready evidence: element tree identity, attributes, classes, text nodes, comments, source spans, stable hashes.
-- Auto-merge candidates: independent existing text-node edits, disjoint existing element-attribute edits, explicit `id` / `data-frontier-key` element subtree additions or deletions, and same-parent reorders where all direct element siblings in the reordered range have explicit identity.
-- Review-only gaps: unkeyed structural edits, reorders mixed with unkeyed direct siblings or direct comments, `<script>`, `<style>`, `<template>`, custom elements, slots, framework directives, hydration, browser DOM/runtime equivalence.
-- Claims: `autoMergeClaim`, `semanticEquivalenceClaim`, and `browserRuntimeEquivalenceClaim` remain false.
+- Ready evidence: element tree identity, attributes, classes, text nodes, comments, source spans, stable hashes, source-bound browser/runtime proofs.
+- Auto-merge candidates: independent existing text-node edits, disjoint existing element-attribute edits, explicit `id` / `data-frontier-key` element subtree additions or deletions, same-parent reorders where all direct element siblings in the reordered range have explicit identity, and runtime-boundary edits only when an exact source-bound browser/runtime proof is supplied.
+- Review-only gaps: unkeyed structural edits, reorders mixed with unkeyed direct siblings or direct comments, `<script>`, `<style>`, `<template>`, custom elements, slots, framework directives, hydration, browser DOM/runtime equivalence without exact source-bound proof.
+- Claims: `autoMergeClaim` and `semanticEquivalenceClaim` remain false. `browserRuntimeEquivalenceClaim` is only true on a safe-merge result when a source-bound browser/runtime proof admits the specific runtime-boundary change.

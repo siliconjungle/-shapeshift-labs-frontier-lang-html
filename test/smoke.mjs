@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { actionNode, capabilityNode, createDocument, entityNode, typeNode } from '@shapeshift-labs/frontier-lang-kernel';
 import { createHtmlSemanticMergeEvidence, emitHtml, emitHtmlWithSourceMap, parseHtmlSemanticTree, renderHtmlAst, renderHtmlAstWithSourceMap, safeMergeHtmlSource, toHtmlAst } from '../dist/index.js';
+import './runtime-proof-smoke.mjs';
 
 const document = createDocument({ id: 'doc', name: 'TodoHtml', nodes: [
   typeNode({ id: 'type_input', name: 'TodoInput', fields: [{ id: 'field_title', name: 'title', type: 'Text' }] }),

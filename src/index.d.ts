@@ -1,4 +1,6 @@
 import type { FrontierLangDocument } from '@shapeshift-labs/frontier-lang-kernel';
+import type { HtmlBrowserRuntimeProof, HtmlBrowserRuntimeProofRecord } from './runtime-proof.js';
+export type { HtmlBrowserRuntimeProof, HtmlBrowserRuntimeProofRecord } from './runtime-proof.js';
 
 export interface HtmlProjectionOptions {
   readonly banner?: string;
@@ -179,6 +181,8 @@ export interface HtmlSafeMergeAdmission {
   readonly action: 'apply-html' | 'human-review' | string;
   readonly reviewRequired: boolean;
   readonly reasonCodes: readonly string[];
+  readonly browserRuntimeEquivalenceClaim?: true;
+  readonly htmlBrowserRuntimeProofs?: readonly HtmlBrowserRuntimeProofRecord[];
 }
 
 export interface HtmlSafeMergeResult {
@@ -194,7 +198,7 @@ export interface HtmlSafeMergeResult {
   readonly admission: HtmlSafeMergeAdmission;
   readonly autoMergeClaim: false;
   readonly semanticEquivalenceClaim: false;
-  readonly browserRuntimeEquivalenceClaim: false;
+  readonly browserRuntimeEquivalenceClaim: boolean;
   readonly baseTreeHash?: string;
   readonly workerTreeHash?: string;
   readonly headTreeHash?: string;
@@ -202,6 +206,7 @@ export interface HtmlSafeMergeResult {
   readonly headChangedRecords?: number;
   readonly parserEvidence?: HtmlSafeMergeParserEvidence;
   readonly identityEvidence?: HtmlSafeMergeIdentityEvidence;
+  readonly htmlRuntimeProofs?: readonly HtmlBrowserRuntimeProofRecord[];
 }
 
 export interface HtmlSafeMergeParserEvidence {
@@ -256,6 +261,18 @@ export interface HtmlSafeMergeInput {
   readonly baseSourceText?: string;
   readonly workerSourceText?: string;
   readonly headSourceText?: string;
+  readonly htmlBrowserRuntimeProof?: HtmlBrowserRuntimeProof;
+  readonly htmlBrowserRuntimeProofs?: readonly HtmlBrowserRuntimeProof[];
+  readonly htmlBrowserRuntimeProofsByPath?: Readonly<Record<string, HtmlBrowserRuntimeProof | readonly HtmlBrowserRuntimeProof[]>>;
+  readonly htmlSourceBoundRuntimeProof?: HtmlBrowserRuntimeProof;
+  readonly htmlSourceBoundRuntimeProofs?: readonly HtmlBrowserRuntimeProof[];
+  readonly htmlSourceBoundRuntimeProofsByPath?: Readonly<Record<string, HtmlBrowserRuntimeProof | readonly HtmlBrowserRuntimeProof[]>>;
+  readonly browserRuntimeProof?: HtmlBrowserRuntimeProof;
+  readonly browserRuntimeProofs?: readonly HtmlBrowserRuntimeProof[];
+  readonly browserRuntimeProofsByPath?: Readonly<Record<string, HtmlBrowserRuntimeProof | readonly HtmlBrowserRuntimeProof[]>>;
+  readonly sourceBoundRuntimeProof?: HtmlBrowserRuntimeProof;
+  readonly sourceBoundRuntimeProofs?: readonly HtmlBrowserRuntimeProof[];
+  readonly sourceBoundRuntimeProofsByPath?: Readonly<Record<string, HtmlBrowserRuntimeProof | readonly HtmlBrowserRuntimeProof[]>>;
 }
 
 export declare function toHtmlAst(document: FrontierLangDocument, options?: HtmlProjectionOptions): HtmlAstDocument;
