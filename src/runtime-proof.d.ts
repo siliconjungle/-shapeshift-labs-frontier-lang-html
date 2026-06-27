@@ -1,6 +1,6 @@
 export interface HtmlBrowserRuntimeProof {
   readonly id?: string;
-  readonly kind: 'html-browser-runtime-proof' | 'html-source-bound-browser-runtime-proof' | 'html-source-bound-runtime-proof' | string;
+  readonly kind: 'html-browser-runtime-proof' | 'html-source-bound-browser-runtime-proof' | 'html-source-bound-runtime-proof' | 'html-runtime-boundary-proof' | 'html-source-bound-runtime-boundary-proof' | string;
   readonly status: 'passed' | string;
   readonly proofLevel?: string;
   readonly sourcePath?: string;
@@ -12,6 +12,12 @@ export interface HtmlBrowserRuntimeProof {
   readonly recordKeys?: readonly string[];
   readonly boundaryKey?: string;
   readonly boundaryKeys?: readonly string[];
+  readonly boundary?: string;
+  readonly boundaries?: readonly string[];
+  readonly attributeName?: string;
+  readonly attributeNames?: readonly string[];
+  readonly boundaryAttributes?: readonly string[];
+  readonly changedBoundaryAttributes?: readonly string[];
   readonly baseSourceText?: string;
   readonly workerSourceText?: string;
   readonly headSourceText?: string;
@@ -36,6 +42,9 @@ export interface HtmlBrowserRuntimeProofRecord {
   readonly reasonCode: string;
   readonly side: string;
   readonly recordKey: string;
+  readonly boundary?: string;
+  readonly attributeName?: string;
+  readonly boundaryAttributes?: readonly string[];
   readonly sourcePath?: string;
   readonly baseSourceHash?: string;
   readonly workerSourceHash?: string;

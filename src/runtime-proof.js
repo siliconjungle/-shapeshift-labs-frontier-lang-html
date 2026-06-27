@@ -18,6 +18,12 @@ function htmlRuntimeProofCandidates(input = {}, sourcePath) {
     input.htmlSourceBoundRuntimeProof,
     input.htmlSourceBoundRuntimeProofs,
     input.htmlSourceBoundRuntimeProofsByPath?.[sourcePath],
+    input.htmlRuntimeBoundaryProof,
+    input.htmlRuntimeBoundaryProofs,
+    input.htmlRuntimeBoundaryProofsByPath?.[sourcePath],
+    input.htmlSourceBoundRuntimeBoundaryProof,
+    input.htmlSourceBoundRuntimeBoundaryProofs,
+    input.htmlSourceBoundRuntimeBoundaryProofsByPath?.[sourcePath],
     input.browserRuntimeProof,
     input.browserRuntimeProofs,
     input.browserRuntimeProofsByPath?.[sourcePath],
@@ -34,7 +40,8 @@ function isHtmlRuntimeProofForGap(proof, item, sourcePath, binding, hash) {
     proof.sourcePath === sourcePath &&
     proofCoversValue(proof.reasonCode, proof.reasonCodes, item.gap.code) &&
     proofCoversValue(proof.side, proof.sides, item.change.side) &&
-    proofCoversValue(proof.recordKey ?? proof.boundaryKey, proof.recordKeys ?? proof.boundaryKeys, item.change.key) &&
+    proofCoversRecordOrBoundary(proof, item) &&
+    proofCoversOptionalValue(proof.attributeName, proof.attributeNames ?? proof.boundaryAttributes ?? proof.changedBoundaryAttributes, item.attributeName) &&
     htmlProofSourceMatches(proof, 'base', binding.base, hash) &&
     htmlProofSourceMatches(proof, 'worker', binding.worker, hash) &&
     htmlProofSourceMatches(proof, 'head', binding.head, hash) &&
@@ -62,6 +69,9 @@ function htmlRuntimeProofRecord(proof, item, sourcePath, binding, hash) {
     reasonCode: item.gap.code,
     side: item.change.side,
     recordKey: item.change.key,
+    boundary: item.boundary,
+    attributeName: item.attributeName,
+    boundaryAttributes: item.boundaryAttributes,
     sourcePath,
     baseSourceHash: hash?.(binding.base),
     workerSourceHash: hash?.(binding.worker),
@@ -74,9 +84,18 @@ function conflict(id, sourcePath, code, reasonCode, details = {}) {
   return { code, gateId: 'html-semantic-merge', sourcePath, details: { reasonCode, conflictKey: `html#${id}#${reasonCode}#${details.recordKey ?? sourcePath ?? 'source'}`, ...details } };
 }
 
+function proofCoversRecordOrBoundary(proof, item) {
+  return proofCoversValue(proof.recordKey ?? proof.boundaryKey, proof.recordKeys ?? proof.boundaryKeys, item.change.key) ||
+    (item.boundary !== undefined && proofCoversValue(proof.boundary, proof.boundaries, item.boundary));
+}
+
+function proofCoversOptionalValue(value, values, expected) {
+  return expected === undefined || proofCoversValue(value, values, expected);
+}
+
 function proofCoversValue(value, values, expected) { return value === expected || (Array.isArray(values) && values.includes(expected)); }
 function asArray(value) { return Array.isArray(value) ? value : value === undefined ? [] : [value]; }
 
-const HtmlRuntimeProofKinds = new Set(['html-browser-runtime-proof', 'html-source-bound-browser-runtime-proof', 'html-source-bound-runtime-proof']);
+const HtmlRuntimeProofKinds = new Set(['html-browser-runtime-proof', 'html-source-bound-browser-runtime-proof', 'html-source-bound-runtime-proof', 'html-runtime-boundary-proof', 'html-source-bound-runtime-boundary-proof']);
 
 export { admitHtmlRuntimeProofs };

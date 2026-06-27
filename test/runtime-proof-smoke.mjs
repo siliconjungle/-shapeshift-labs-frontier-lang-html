@@ -71,3 +71,76 @@ const oneSided = safeMergeHtmlSource({
 });
 assert.equal(oneSided.status, 'merged');
 assert.equal(oneSided.browserRuntimeEquivalenceClaim, true);
+
+const eventBase = '<button data-frontier-key="save" onclick="save()">Save</button>\n';
+const eventWorker = '<button data-frontier-key="save" onclick="saveAndClose()">Save</button>\n';
+const eventHead = '<button data-frontier-key="save" onclick="save()" aria-label="Save item">Save</button>\n';
+const eventOutput = '<button aria-label="Save item" data-frontier-key="save" onclick="saveAndClose()">Save</button>\n';
+const eventProof = {
+  id: 'proof_html_event_handler_runtime',
+  kind: 'html-source-bound-runtime-boundary-proof',
+  status: 'passed',
+  sourcePath: 'view.html',
+  reasonCode: 'event-handler-runtime-boundary',
+  side: 'worker',
+  boundary: 'html-event-handler-attribute',
+  boundaryAttributes: ['onclick'],
+  baseSourceHash: hashSemanticValue(eventBase),
+  workerSourceHash: hashSemanticValue(eventWorker),
+  headSourceHash: hashSemanticValue(eventHead),
+  outputSourceHash: hashSemanticValue(eventOutput)
+};
+
+const eventBlocked = safeMergeHtmlSource({
+  id: 'html_event_handler_blocked',
+  sourcePath: 'view.html',
+  baseSourceText: eventBase,
+  workerSourceText: eventWorker,
+  headSourceText: eventHead
+});
+assert.equal(eventBlocked.status, 'blocked');
+assert.equal(eventBlocked.conflicts.some((conflict) => conflict.details.reasonCode === 'event-handler-runtime-boundary'), true);
+
+const eventWrongOutputProof = safeMergeHtmlSource({
+  id: 'html_event_handler_wrong_output',
+  sourcePath: 'view.html',
+  baseSourceText: eventBase,
+  workerSourceText: eventWorker,
+  headSourceText: eventHead,
+  htmlRuntimeBoundaryProofs: [{ ...eventProof, outputSourceHash: hashSemanticValue('wrong output') }]
+});
+assert.equal(eventWrongOutputProof.status, 'blocked');
+
+const eventWrongAttributeProof = safeMergeHtmlSource({
+  id: 'html_event_handler_wrong_attribute',
+  sourcePath: 'view.html',
+  baseSourceText: eventBase,
+  workerSourceText: eventWorker,
+  headSourceText: eventHead,
+  htmlRuntimeBoundaryProofs: [{ ...eventProof, boundaryAttributes: ['onmouseover'] }]
+});
+assert.equal(eventWrongAttributeProof.status, 'blocked');
+
+const eventProven = safeMergeHtmlSource({
+  id: 'html_event_handler_proven',
+  sourcePath: 'view.html',
+  baseSourceText: eventBase,
+  workerSourceText: eventWorker,
+  headSourceText: eventHead,
+  htmlRuntimeBoundaryProofs: [eventProof]
+});
+assert.equal(eventProven.status, 'merged');
+assert.equal(eventProven.browserRuntimeEquivalenceClaim, true);
+assert.equal(eventProven.htmlRuntimeProofs[0].boundary, 'html-event-handler-attribute');
+assert.equal(eventProven.htmlRuntimeProofs[0].attributeName, 'onclick');
+assert.equal(eventProven.mergedSourceText, eventOutput);
+
+const nonEventAttributeOnHandlerElement = safeMergeHtmlSource({
+  id: 'html_event_handler_non_event_attribute',
+  sourcePath: 'view.html',
+  baseSourceText: eventBase,
+  workerSourceText: eventBase.replace('data-frontier-key="save"', 'data-frontier-key="save" type="button"'),
+  headSourceText: eventBase.replace('Save</button>', 'Save item</button>')
+});
+assert.equal(nonEventAttributeOnHandlerElement.status, 'merged');
+assert.equal(nonEventAttributeOnHandlerElement.browserRuntimeEquivalenceClaim, false);

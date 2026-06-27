@@ -32,7 +32,7 @@ function safeMergeHtmlSource(input = {}) {
     id,
     sourcePath,
     input,
-    proofGaps: proofGapChecks([...changes.worker, ...changes.head]),
+    proofGaps: runtimeProofChecks([...changes.worker, ...changes.head]),
     binding: { base, worker, head, output: mergedSourceText },
     hash: hashSemanticValue
   });
@@ -66,7 +66,7 @@ function singleSideMerge(id, sourcePath, base, current, operation, input, side, 
     id,
     sourcePath,
     input,
-    proofGaps: proofGapChecks(changes),
+    proofGaps: runtimeProofChecks(changes),
     binding: { base, worker, head, output: current },
     hash: hashSemanticValue
   });
@@ -107,6 +107,26 @@ function proofGapChecks(changes) {
   return changes.flatMap((change) => {
     const record = change.after ?? change.before;
     return (record?.proofGaps ?? []).map((gap) => ({ change, gap }));
+  });
+}
+
+function runtimeProofChecks(changes) {
+  return [...proofGapChecks(changes), ...eventHandlerRuntimeChecks(changes)];
+}
+
+function eventHandlerRuntimeChecks(changes) {
+  return changes.flatMap((change) => {
+    const before = change.before?.kind === 'element' ? change.before.attributes ?? {} : {};
+    const after = change.after?.kind === 'element' ? change.after.attributes ?? {} : {};
+    return attributeChanges(before, after)
+      .filter((attribute) => /^on[\w:.-]+$/i.test(attribute.name))
+      .map((attribute) => ({
+        change,
+        attributeName: attribute.name.toLowerCase(),
+        boundary: 'html-event-handler-attribute',
+        boundaryAttributes: [attribute.name.toLowerCase()],
+        gap: proofGap('event-handler-runtime-boundary', 'HTML event handler attributes execute in the browser runtime and require source-bound host evidence.')
+      }));
   });
 }
 
@@ -186,6 +206,7 @@ function conflict(id, sourcePath, code, reasonCode, details = {}) {
   return { code, gateId: 'html-semantic-merge', sourcePath, details: { reasonCode, conflictKey: `html#${id}#${reasonCode}#${details.recordKey ?? sourcePath ?? 'source'}`, ...details } };
 }
 
+function proofGap(code, summary) { return { code, status: 'not-claimed', summary, failClosed: true, semanticEquivalenceClaim: false }; }
 function sameChange(left, right) { return (left.after?.recordHash ?? '') === (right.after?.recordHash ?? '') && left.kind === right.kind; }
 function changeSummary(change) { return { kind: change.kind, recordKind: change.after?.kind ?? change.before?.kind, recordHash: change.after?.recordHash }; }
 function unique(values) { return [...new Set(values.filter((value) => value !== undefined && value !== null && String(value)))]; }
