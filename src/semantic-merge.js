@@ -111,23 +111,28 @@ function proofGapChecks(changes) {
 }
 
 function runtimeProofChecks(changes) {
-  return [...proofGapChecks(changes), ...eventHandlerRuntimeChecks(changes)];
+  return [...proofGapChecks(changes), ...attributeRuntimeChecks(changes)];
 }
 
-function eventHandlerRuntimeChecks(changes) {
+function attributeRuntimeChecks(changes) {
   return changes.flatMap((change) => {
     const before = change.before?.kind === 'element' ? change.before.attributes ?? {} : {};
     const after = change.after?.kind === 'element' ? change.after.attributes ?? {} : {};
     return attributeChanges(before, after)
-      .filter((attribute) => /^on[\w:.-]+$/i.test(attribute.name))
-      .map((attribute) => ({
-        change,
-        attributeName: attribute.name.toLowerCase(),
-        boundary: 'html-event-handler-attribute',
-        boundaryAttributes: [attribute.name.toLowerCase()],
-        gap: proofGap('event-handler-runtime-boundary', 'HTML event handler attributes execute in the browser runtime and require source-bound host evidence.')
-      }));
+      .flatMap((attribute) => attributeRuntimeCheck(change, attribute));
   });
+}
+
+function attributeRuntimeCheck(change, attribute) {
+  const name = attribute.name.toLowerCase();
+  const spec = runtimeAttributeSpec(name);
+  return spec ? [{ change, attributeName: name, boundaryAttributes: [name], ...spec, gap: proofGap(spec.reasonCode, spec.summary) }] : [];
+}
+
+function runtimeAttributeSpec(name) {
+  if (/^on[\w:.-]+$/i.test(name)) return { boundary: 'html-event-handler-attribute', reasonCode: 'event-handler-runtime-boundary', summary: 'HTML event handler attributes execute in the browser runtime and require source-bound host evidence.' };
+  if (name === 'style') return { boundary: 'html-inline-style-attribute', reasonCode: 'inline-style-runtime-boundary', summary: 'HTML inline style attributes affect browser cascade and rendering and require source-bound host evidence.' };
+  return undefined;
 }
 
 function parserRecoveryConflicts(id, sourcePath, trees) {

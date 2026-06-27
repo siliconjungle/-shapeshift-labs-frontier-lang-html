@@ -144,3 +144,37 @@ const nonEventAttributeOnHandlerElement = safeMergeHtmlSource({
 });
 assert.equal(nonEventAttributeOnHandlerElement.status, 'merged');
 assert.equal(nonEventAttributeOnHandlerElement.browserRuntimeEquivalenceClaim, false);
+
+const styleBase = '<div data-frontier-key="card" style="color: red">Card</div>\n';
+const styleWorker = '<div data-frontier-key="card" style="color: blue">Card</div>\n';
+const styleHead = '<div data-frontier-key="card" style="color: red" aria-label="Card">Card</div>\n';
+const styleOutput = '<div aria-label="Card" data-frontier-key="card" style="color: blue">Card</div>\n';
+const styleProof = {
+  id: 'proof_html_inline_style_runtime',
+  kind: 'html-source-bound-runtime-boundary-proof',
+  status: 'passed',
+  sourcePath: 'view.html',
+  reasonCode: 'inline-style-runtime-boundary',
+  side: 'worker',
+  boundary: 'html-inline-style-attribute',
+  boundaryAttributes: ['style'],
+  baseSourceHash: hashSemanticValue(styleBase),
+  workerSourceHash: hashSemanticValue(styleWorker),
+  headSourceHash: hashSemanticValue(styleHead),
+  outputSourceHash: hashSemanticValue(styleOutput)
+};
+
+const styleBlocked = safeMergeHtmlSource({ id: 'html_inline_style_blocked', sourcePath: 'view.html', baseSourceText: styleBase, workerSourceText: styleWorker, headSourceText: styleHead });
+assert.equal(styleBlocked.status, 'blocked');
+assert.equal(styleBlocked.conflicts.some((conflict) => conflict.details.reasonCode === 'inline-style-runtime-boundary'), true);
+const styleWrongBoundaryProof = safeMergeHtmlSource({ id: 'html_inline_style_wrong_boundary', sourcePath: 'view.html', baseSourceText: styleBase, workerSourceText: styleWorker, headSourceText: styleHead, htmlRuntimeBoundaryProofs: [{ ...styleProof, boundary: 'html-event-handler-attribute' }] });
+assert.equal(styleWrongBoundaryProof.status, 'blocked');
+const styleProven = safeMergeHtmlSource({ id: 'html_inline_style_proven', sourcePath: 'view.html', baseSourceText: styleBase, workerSourceText: styleWorker, headSourceText: styleHead, htmlRuntimeBoundaryProofs: [styleProof] });
+assert.equal(styleProven.status, 'merged');
+assert.equal(styleProven.browserRuntimeEquivalenceClaim, true);
+assert.equal(styleProven.htmlRuntimeProofs[0].boundary, 'html-inline-style-attribute');
+assert.equal(styleProven.htmlRuntimeProofs[0].attributeName, 'style');
+assert.equal(styleProven.mergedSourceText, styleOutput);
+const nonStyleAttributeOnStyledElement = safeMergeHtmlSource({ id: 'html_inline_style_non_style_attribute', sourcePath: 'view.html', baseSourceText: styleBase, workerSourceText: styleBase.replace('data-frontier-key="card"', 'data-frontier-key="card" role="region"'), headSourceText: styleBase.replace('Card</div>', 'Panel</div>') });
+assert.equal(nonStyleAttributeOnStyledElement.status, 'merged');
+assert.equal(nonStyleAttributeOnStyledElement.browserRuntimeEquivalenceClaim, false);

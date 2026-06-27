@@ -41,6 +41,7 @@ function isHtmlRuntimeProofForGap(proof, item, sourcePath, binding, hash) {
     proofCoversValue(proof.reasonCode, proof.reasonCodes, item.gap.code) &&
     proofCoversValue(proof.side, proof.sides, item.change.side) &&
     proofCoversRecordOrBoundary(proof, item) &&
+    proofCoversOptionalValue(proof.boundary, proof.boundaries, item.boundary) &&
     proofCoversOptionalValue(proof.attributeName, proof.attributeNames ?? proof.boundaryAttributes ?? proof.changedBoundaryAttributes, item.attributeName) &&
     htmlProofSourceMatches(proof, 'base', binding.base, hash) &&
     htmlProofSourceMatches(proof, 'worker', binding.worker, hash) &&
