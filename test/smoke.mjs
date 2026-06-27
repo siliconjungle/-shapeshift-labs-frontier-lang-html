@@ -126,11 +126,21 @@ assert.equal(htmlMerged.parserEvidence.parserBackedSourceSpans, true);
 assert.equal(htmlMerged.parserEvidence.parserBackedAttributeSpans, true);
 assert.equal(htmlMerged.parserEvidence.parserBackedTriviaSpans, true);
 assert.equal(htmlMerged.parserEvidence.parseErrors, 0);
+assert.equal(htmlMerged.parserEvidence.recordCount, Object.values(htmlMerged.parserEvidence.sides).reduce((sum, side) => sum + side.recordCount, 0));
+assert.equal(htmlMerged.parserEvidence.sourceSpanMissingRecordCount, 0);
+assert.equal(htmlMerged.parserEvidence.attributeSpanMissingElementCount, 0);
+assert.equal(htmlMerged.parserEvidence.structuralSpanMissingRecordCount, 0);
+assert.equal(htmlMerged.parserEvidence.leadingTriviaSpanRecordCount > 0, true);
+assert.equal(htmlMerged.parserEvidence.sides.base.sourceSpanRecordCount, htmlMerged.parserEvidence.sides.base.recordCount);
+assert.equal(htmlMerged.parserEvidence.sides.base.attributeSpanMissingElementCount, 0);
+assert.equal(htmlMerged.parserEvidence.sides.base.structuralSpanRecordCount, htmlMerged.parserEvidence.sides.base.recordCount);
 assert.equal(htmlMerged.identityEvidence.kind, 'frontier.lang.htmlSafeMergeIdentityEvidence');
 assert.equal(htmlMerged.identityEvidence.parserBackedStructuralSpans, true);
 assert.equal(htmlMerged.identityEvidence.structuralAddressability, true);
 assert.equal(htmlMerged.identityEvidence.sides.base.explicitIdentityElementCount, 2);
 assert.equal(htmlMerged.identityEvidence.sides.base.pathOnlyIdentityElementCount, 1);
+assert.equal(htmlMerged.identityEvidence.duplicateExplicitIdentityElementCount, 0);
+assert.deepEqual(htmlMerged.identityEvidence.duplicateExplicitIdentityKeys, []);
 
 const htmlAttributeMergeBase = [
   '<button data-frontier-key="save" type="button">Save</button>',
@@ -210,6 +220,18 @@ const htmlSameKeyAddConflict = safeMergeHtmlSource({
 });
 assert.equal(htmlSameKeyAddConflict.status, 'blocked');
 assert.equal(htmlSameKeyAddConflict.conflicts.some((conflict) => conflict.code === 'html-structural-overlap-conflict' || conflict.code === 'html-record-conflict'), true);
+
+const htmlDuplicateExplicitIdentity = safeMergeHtmlSource({
+  id: 'html_duplicate_explicit_identity_blocks_package_api',
+  sourcePath: 'view.html',
+  baseSourceText: ['<ul id="todos">', '</ul>', ''].join('\n'),
+  workerSourceText: ['<ul id="todos">', '  <li data-frontier-key="item">A</li>', '  <li data-frontier-key="item">B</li>', '</ul>', ''].join('\n'),
+  headSourceText: ['<ul id="todos">', '</ul>', ''].join('\n')
+});
+assert.equal(htmlDuplicateExplicitIdentity.status, 'blocked');
+assert.equal(htmlDuplicateExplicitIdentity.conflicts.some((conflict) => conflict.code === 'html-duplicate-explicit-identity'), true);
+assert.equal(htmlDuplicateExplicitIdentity.identityEvidence.sides.worker.duplicateExplicitIdentityElementCount, 2);
+assert.deepEqual(htmlDuplicateExplicitIdentity.identityEvidence.sides.worker.duplicateExplicitIdentityKeys, ['element#item']);
 
 const htmlPathOnlyAddConflict = safeMergeHtmlSource({
   id: 'html_path_only_add_conflict',

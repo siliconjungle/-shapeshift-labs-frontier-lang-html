@@ -38,6 +38,7 @@ function safeMergeHtmlSource(input = {}) {
   });
   const conflicts = [
     ...parserConflicts,
+    ...duplicateExplicitIdentityConflicts(id, sourcePath, trees),
     ...runtimeAdmission.conflicts,
     ...structuralMergeConflicts,
     ...patch.conflicts
@@ -72,6 +73,7 @@ function singleSideMerge(id, sourcePath, base, current, operation, input, side, 
   });
   const conflicts = [
     ...parserRecoveryConflicts(id, sourcePath, trees),
+    ...duplicateExplicitIdentityConflicts(id, sourcePath, trees),
     ...runtimeAdmission.conflicts,
     ...structuralConflicts(id, sourcePath, changes)
   ];
@@ -148,6 +150,31 @@ function parserRecoveryConflicts(id, sourcePath, trees) {
   return Object.entries(trees).flatMap(([side, tree]) => (tree.proofGaps ?? [])
     .filter((gap) => gap.code === 'html-parser-recovery')
     .map((gap) => conflict(id, sourcePath, 'html-parser-recovery-blocked', gap.code, { side, proofGap: gap })));
+}
+
+function duplicateExplicitIdentityConflicts(id, sourcePath, trees) {
+  return Object.entries(trees).flatMap(([side, tree]) => duplicateExplicitIdentityGroups(tree.records ?? [])
+    .map((group) => conflict(id, sourcePath, 'html-duplicate-explicit-identity', 'html-duplicate-explicit-identity', {
+      side,
+      recordKey: group.key,
+      identityKey: group.identityKey,
+      count: group.records.length,
+      recordPaths: group.records.map((record) => record.path?.join('/')).filter(Boolean),
+      tagNames: unique(group.records.map((record) => record.tagName))
+    })));
+}
+
+function duplicateExplicitIdentityGroups(records) {
+  const groups = new Map();
+  for (const record of records) {
+    if (record.kind !== 'element' || record.explicitIdentity !== true) continue;
+    const key = record.key ?? `element#${record.identityKey}`;
+    if (!key) continue;
+    const group = groups.get(key) ?? { key, identityKey: record.identityKey, records: [] };
+    group.records.push(record);
+    groups.set(key, group);
+  }
+  return [...groups.values()].filter((group) => group.records.length > 1);
 }
 
 function overlapConflicts(id, sourcePath, workerChanges, headChanges) {

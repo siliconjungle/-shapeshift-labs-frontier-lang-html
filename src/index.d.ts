@@ -218,6 +218,14 @@ export interface HtmlSafeMergeParserEvidence {
   readonly parserBackedAttributeSpans: boolean;
   readonly parserBackedTriviaSpans: boolean;
   readonly parseErrors: number;
+  readonly recordCount: number;
+  readonly sourceSpanRecordCount: number;
+  readonly sourceSpanMissingRecordCount: number;
+  readonly attributeSpanElementCount: number;
+  readonly attributeSpanMissingElementCount: number;
+  readonly structuralSpanRecordCount: number;
+  readonly structuralSpanMissingRecordCount: number;
+  readonly leadingTriviaSpanRecordCount: number;
   readonly sides: Readonly<Record<string, HtmlSafeMergeParserSideEvidence>>;
 }
 
@@ -229,6 +237,13 @@ export interface HtmlSafeMergeParserSideEvidence {
   readonly parserBackedTriviaSpans: boolean;
   readonly parseErrors: number;
   readonly recordCount: number;
+  readonly sourceSpanRecordCount: number;
+  readonly sourceSpanMissingRecordCount: number;
+  readonly attributeSpanElementCount: number;
+  readonly attributeSpanMissingElementCount: number;
+  readonly structuralSpanRecordCount: number;
+  readonly structuralSpanMissingRecordCount: number;
+  readonly leadingTriviaSpanRecordCount: number;
 }
 
 export interface HtmlSafeMergeIdentityEvidence {
@@ -238,6 +253,8 @@ export interface HtmlSafeMergeIdentityEvidence {
   readonly parserBackedStructuralSpans: boolean;
   readonly structuralAddressability: boolean;
   readonly pathOnlyIdentityElements: number;
+  readonly duplicateExplicitIdentityElementCount: number;
+  readonly duplicateExplicitIdentityKeys: readonly string[];
   readonly runtimeBoundaryElements: number;
   readonly frameworkBoundaryElements: number;
   readonly sides: Readonly<Record<string, HtmlSafeMergeIdentitySideEvidence>>;
@@ -251,6 +268,8 @@ export interface HtmlSafeMergeIdentitySideEvidence {
   readonly childOrderRecordCount: number;
   readonly parserBackedStructuralSpans: boolean;
   readonly explicitIdentityKeys: readonly string[];
+  readonly duplicateExplicitIdentityElementCount: number;
+  readonly duplicateExplicitIdentityKeys: readonly string[];
   readonly runtimeBoundaryElementCount: number;
   readonly frameworkBoundaryElementCount: number;
 }

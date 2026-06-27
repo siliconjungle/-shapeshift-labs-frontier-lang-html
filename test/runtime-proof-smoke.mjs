@@ -280,7 +280,7 @@ assert.equal(srcdocProven.status, 'merged');
 assert.equal(srcdocProven.htmlRuntimeProofs[0].boundary, 'html-iframe-srcdoc-attribute');
 assert.equal(srcdocProven.htmlRuntimeProofs[0].attributeName, 'srcdoc');
 assert.equal(srcdocProven.mergedSourceText, srcdocOutput);
-const iframeNonRuntimeBase = '<section id="preview"><iframe data-frontier-key="preview" src="/a.html" title="Preview"></iframe><h2>Preview</h2></section>\n';
+const iframeNonRuntimeBase = '<section id="preview"><iframe data-frontier-key="frame-preview" src="/a.html" title="Preview"></iframe><h2>Preview</h2></section>\n';
 const nonRuntimeAttributeOnIframe = safeMergeHtmlSource({ id: 'html_iframe_non_runtime_attribute', sourcePath: 'view.html', baseSourceText: iframeNonRuntimeBase, workerSourceText: iframeNonRuntimeBase.replace('title="Preview"', 'title="Embedded preview"'), headSourceText: iframeNonRuntimeBase.replace('<h2>Preview</h2>', '<h2>Live preview</h2>') });
 assert.equal(nonRuntimeAttributeOnIframe.status, 'merged');
 assert.equal(nonRuntimeAttributeOnIframe.browserRuntimeEquivalenceClaim, false);
