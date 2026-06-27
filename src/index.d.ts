@@ -1,6 +1,6 @@
 import type { FrontierLangDocument } from '@shapeshift-labs/frontier-lang-kernel';
-import type { HtmlBrowserRuntimeProof, HtmlBrowserRuntimeProofRecord } from './runtime-proof.js';
-export type { HtmlBrowserRuntimeProof, HtmlBrowserRuntimeProofRecord } from './runtime-proof.js';
+import type { HtmlBrowserRuntimeProof, HtmlBrowserRuntimeProofInput, HtmlBrowserRuntimeProofRecord } from './runtime-proof.js';
+export type { HtmlBrowserRuntimeProof, HtmlBrowserRuntimeProofInput, HtmlBrowserRuntimeProofRecord } from './runtime-proof.js';
 
 export interface HtmlProjectionOptions {
   readonly banner?: string;
@@ -304,4 +304,6 @@ export declare function emitHtml(document: FrontierLangDocument, options?: HtmlP
 export declare function emitHtmlWithSourceMap(document: FrontierLangDocument, options?: HtmlProjectionOptions): HtmlProjectionWithAstResult;
 export declare function parseHtmlSemanticTree(sourceText: string, options?: HtmlProjectionOptions): HtmlSemanticTree;
 export declare function createHtmlSemanticMergeEvidence(sourceText: string, options?: HtmlProjectionOptions): HtmlSemanticMergeEvidence;
+export declare function createHtmlRuntimeProof(input?: HtmlBrowserRuntimeProofInput): HtmlBrowserRuntimeProof;
+export declare function createHtmlRuntimeBoundaryProof(input?: HtmlBrowserRuntimeProofInput): HtmlBrowserRuntimeProof;
 export declare function safeMergeHtmlSource(input: HtmlSafeMergeInput): HtmlSafeMergeResult;

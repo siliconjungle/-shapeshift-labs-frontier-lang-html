@@ -55,6 +55,11 @@ export interface HtmlBrowserRuntimeProof {
   readonly evidence?: HtmlBrowserRuntimeProofEvidenceRef;
   readonly runtimeEvidence?: HtmlBrowserRuntimeProofEvidenceRef;
   readonly browserEvidence?: HtmlBrowserRuntimeProofEvidenceRef;
+  readonly runtimeEvidenceBound?: boolean;
+  readonly browserRuntimeEquivalenceClaim?: boolean;
+  readonly browserRenderEquivalenceClaim?: boolean;
+  readonly semanticEquivalenceClaim?: boolean;
+  readonly autoMergeClaim?: boolean;
 }
 
 export interface HtmlBrowserRuntimeProofProbeRef {
@@ -70,6 +75,14 @@ export interface HtmlBrowserRuntimeProofEvidenceRef {
 }
 
 export type HtmlBrowserRuntimeProofSignals = string | readonly string[] | Readonly<Record<string, boolean | 'passed' | string>>;
+
+export interface HtmlBrowserRuntimeProofInput extends Partial<HtmlBrowserRuntimeProof> {
+  readonly base?: string;
+  readonly worker?: string;
+  readonly head?: string;
+  readonly output?: string;
+  readonly merged?: string;
+}
 
 export interface HtmlBrowserRuntimeProofRecord {
   readonly id?: string;
@@ -98,3 +111,6 @@ export interface HtmlBrowserRuntimeProofRecord {
   readonly semanticEquivalenceClaim: boolean;
   readonly autoMergeClaim: boolean;
 }
+
+export declare function createHtmlRuntimeProof(input?: HtmlBrowserRuntimeProofInput): HtmlBrowserRuntimeProof;
+export declare function createHtmlRuntimeBoundaryProof(input?: HtmlBrowserRuntimeProofInput): HtmlBrowserRuntimeProof;

@@ -1,5 +1,6 @@
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
 import { parseHtmlSemanticRecords } from './parser-evidence.js';
+export { createHtmlRuntimeBoundaryProof, createHtmlRuntimeProof } from './runtime-proof.js';
 export { safeMergeHtmlSource } from './semantic-merge.js';
 
 const VoidTags = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);

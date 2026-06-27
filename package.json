@@ -1,6 +1,6 @@
 {
   "name": "@shapeshift-labs/frontier-lang-html",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "HTML semantic merge evidence and projection adapter for Frontier Lang semantic source documents.",
   "type": "module",
   "main": "./dist/index.js",
