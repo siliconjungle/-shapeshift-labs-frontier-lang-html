@@ -139,11 +139,70 @@ const nonEventAttributeOnHandlerElement = safeMergeHtmlSource({
   id: 'html_event_handler_non_event_attribute',
   sourcePath: 'view.html',
   baseSourceText: eventBase,
-  workerSourceText: eventBase.replace('data-frontier-key="save"', 'data-frontier-key="save" type="button"'),
+  workerSourceText: eventBase.replace('data-frontier-key="save"', 'data-frontier-key="save" aria-label="Save"'),
   headSourceText: eventBase.replace('Save</button>', 'Save item</button>')
 });
 assert.equal(nonEventAttributeOnHandlerElement.status, 'merged');
 assert.equal(nonEventAttributeOnHandlerElement.browserRuntimeEquivalenceClaim, false);
+
+const submitterBase = '<button data-frontier-key="save" type="button">Save</button>\n';
+const submitterWorker = '<button data-frontier-key="save" type="submit">Save</button>\n';
+const submitterProof = {
+  id: 'proof_html_form_submitter_runtime',
+  kind: 'html-source-bound-runtime-boundary-proof',
+  status: 'passed',
+  sourcePath: 'view.html',
+  reasonCode: 'form-submitter-runtime-boundary',
+  side: 'worker',
+  boundary: 'html-form-submitter-runtime-attribute',
+  boundaryAttributes: ['type'],
+  baseSourceHash: hashSemanticValue(submitterBase),
+  workerSourceHash: hashSemanticValue(submitterWorker),
+  headSourceHash: hashSemanticValue(submitterBase),
+  outputSourceHash: hashSemanticValue(submitterWorker)
+};
+const submitterBlocked = safeMergeHtmlSource({ id: 'html_form_submitter_blocked', sourcePath: 'view.html', baseSourceText: submitterBase, workerSourceText: submitterWorker, headSourceText: submitterBase });
+assert.equal(submitterBlocked.status, 'blocked');
+assert.equal(submitterBlocked.conflicts.some((conflict) => conflict.details.reasonCode === 'form-submitter-runtime-boundary'), true);
+const submitterWrongAttributeProof = safeMergeHtmlSource({ id: 'html_form_submitter_wrong_attribute', sourcePath: 'view.html', baseSourceText: submitterBase, workerSourceText: submitterWorker, headSourceText: submitterBase, htmlRuntimeBoundaryProofs: [{ ...submitterProof, boundaryAttributes: ['formmethod'] }] });
+assert.equal(submitterWrongAttributeProof.status, 'blocked');
+const submitterProven = safeMergeHtmlSource({ id: 'html_form_submitter_proven', sourcePath: 'view.html', baseSourceText: submitterBase, workerSourceText: submitterWorker, headSourceText: submitterBase, htmlRuntimeBoundaryProofs: [submitterProof] });
+assert.equal(submitterProven.status, 'merged');
+assert.equal(submitterProven.browserRuntimeEquivalenceClaim, true);
+assert.equal(submitterProven.htmlRuntimeProofs[0].boundary, 'html-form-submitter-runtime-attribute');
+assert.equal(submitterProven.htmlRuntimeProofs[0].attributeName, 'type');
+assert.equal(submitterProven.mergedSourceText, submitterWorker);
+
+const formBase = '<form data-frontier-key="search" action="/old" method="get"><input name="q"></form>\n';
+const formWorker = '<form data-frontier-key="search" action="/new" method="get"><input name="q"></form>\n';
+const formBlocked = safeMergeHtmlSource({ id: 'html_form_action_blocked', sourcePath: 'view.html', baseSourceText: formBase, workerSourceText: formWorker, headSourceText: formBase });
+assert.equal(formBlocked.status, 'blocked');
+assert.equal(formBlocked.conflicts.some((conflict) => conflict.details.reasonCode === 'form-runtime-boundary'), true);
+
+const controlBase = '<input data-frontier-key="agree" type="checkbox">\n';
+const controlWorker = '<input data-frontier-key="agree" type="checkbox" checked>\n';
+const controlBlocked = safeMergeHtmlSource({ id: 'html_form_control_checked_blocked', sourcePath: 'view.html', baseSourceText: controlBase, workerSourceText: controlWorker, headSourceText: controlBase });
+assert.equal(controlBlocked.status, 'blocked');
+assert.equal(controlBlocked.conflicts.some((conflict) => conflict.details.reasonCode === 'form-control-runtime-boundary'), true);
+const controlProof = {
+  id: 'proof_html_form_control_runtime',
+  kind: 'html-source-bound-runtime-boundary-proof',
+  status: 'passed',
+  sourcePath: 'view.html',
+  reasonCode: 'form-control-runtime-boundary',
+  side: 'worker',
+  boundary: 'html-form-control-runtime-attribute',
+  boundaryAttributes: ['checked'],
+  baseSourceHash: hashSemanticValue(controlBase),
+  workerSourceHash: hashSemanticValue(controlWorker),
+  headSourceHash: hashSemanticValue(controlBase),
+  outputSourceHash: hashSemanticValue(controlWorker)
+};
+const controlProven = safeMergeHtmlSource({ id: 'html_form_control_checked_proven', sourcePath: 'view.html', baseSourceText: controlBase, workerSourceText: controlWorker, headSourceText: controlBase, htmlRuntimeBoundaryProofs: [controlProof] });
+assert.equal(controlProven.status, 'merged');
+assert.equal(controlProven.htmlRuntimeProofs[0].boundary, 'html-form-control-runtime-attribute');
+assert.equal(controlProven.htmlRuntimeProofs[0].attributeName, 'checked');
+assert.equal(controlProven.mergedSourceText, controlWorker);
 
 const styleBase = '<div data-frontier-key="card" style="color: red">Card</div>\n';
 const styleWorker = '<div data-frontier-key="card" style="color: blue">Card</div>\n';

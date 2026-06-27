@@ -135,6 +135,9 @@ function runtimeAttributeSpec(name, tagName) {
   if (name === 'style') return { boundary: 'html-inline-style-attribute', reasonCode: 'inline-style-runtime-boundary', summary: 'HTML inline style attributes affect browser cascade and rendering and require source-bound host evidence.' };
   if (tagName === 'iframe' && name === 'srcdoc') return { boundary: 'html-iframe-srcdoc-attribute', reasonCode: 'iframe-srcdoc-runtime-boundary', summary: 'HTML iframe srcdoc attributes define nested browsing-context content and require source-bound host evidence.' };
   if (tagName === 'iframe' && IframeRuntimeAttributes.has(name)) return { boundary: 'html-iframe-runtime-attribute', reasonCode: 'iframe-runtime-boundary', summary: 'HTML iframe runtime attributes affect nested browsing-context execution and require source-bound host evidence.' };
+  if (tagName === 'form' && FormRuntimeAttributes.has(name)) return { boundary: 'html-form-runtime-attribute', reasonCode: 'form-runtime-boundary', summary: 'HTML form runtime attributes affect submission, navigation, encoding, or validation and require source-bound host evidence.' };
+  if (FormSubmitterTags.has(tagName) && FormSubmitterRuntimeAttributes.has(name)) return { boundary: 'html-form-submitter-runtime-attribute', reasonCode: 'form-submitter-runtime-boundary', summary: 'HTML submitter attributes affect form submission behavior and require source-bound host evidence.' };
+  if (FormControlTags.has(tagName) && FormControlRuntimeAttributes.has(name)) return { boundary: 'html-form-control-runtime-attribute', reasonCode: 'form-control-runtime-boundary', summary: 'HTML form-control attributes affect user input, validation, state, or submission data and require source-bound host evidence.' };
   return undefined;
 }
 
@@ -220,5 +223,10 @@ function changeSummary(change) { return { kind: change.kind, recordKind: change.
 function unique(values) { return [...new Set(values.filter((value) => value !== undefined && value !== null && String(value)))]; }
 
 const IframeRuntimeAttributes = new Set(['allow', 'allowfullscreen', 'allowpaymentrequest', 'credentialless', 'csp', 'fetchpriority', 'loading', 'name', 'referrerpolicy', 'sandbox', 'src']);
+const FormRuntimeAttributes = new Set(['accept-charset', 'action', 'autocomplete', 'enctype', 'method', 'novalidate', 'target']);
+const FormSubmitterTags = new Set(['button', 'input']);
+const FormSubmitterRuntimeAttributes = new Set(['form', 'formaction', 'formenctype', 'formmethod', 'formnovalidate', 'formtarget', 'type']);
+const FormControlTags = new Set(['button', 'fieldset', 'input', 'optgroup', 'option', 'output', 'select', 'textarea']);
+const FormControlRuntimeAttributes = new Set(['accept', 'autocomplete', 'capture', 'checked', 'disabled', 'form', 'list', 'max', 'maxlength', 'min', 'minlength', 'multiple', 'name', 'pattern', 'readonly', 'required', 'selected', 'size', 'step', 'value']);
 
 export { safeMergeHtmlSource };

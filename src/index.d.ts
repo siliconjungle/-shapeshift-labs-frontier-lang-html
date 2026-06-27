@@ -267,6 +267,9 @@ export interface HtmlSafeMergeInput {
   readonly htmlSourceBoundRuntimeProof?: HtmlBrowserRuntimeProof;
   readonly htmlSourceBoundRuntimeProofs?: readonly HtmlBrowserRuntimeProof[];
   readonly htmlSourceBoundRuntimeProofsByPath?: Readonly<Record<string, HtmlBrowserRuntimeProof | readonly HtmlBrowserRuntimeProof[]>>;
+  readonly htmlRuntimeBoundaryProof?: HtmlBrowserRuntimeProof;
+  readonly htmlRuntimeBoundaryProofs?: readonly HtmlBrowserRuntimeProof[];
+  readonly htmlRuntimeBoundaryProofsByPath?: Readonly<Record<string, HtmlBrowserRuntimeProof | readonly HtmlBrowserRuntimeProof[]>>;
   readonly browserRuntimeProof?: HtmlBrowserRuntimeProof;
   readonly browserRuntimeProofs?: readonly HtmlBrowserRuntimeProof[];
   readonly browserRuntimeProofsByPath?: Readonly<Record<string, HtmlBrowserRuntimeProof | readonly HtmlBrowserRuntimeProof[]>>;

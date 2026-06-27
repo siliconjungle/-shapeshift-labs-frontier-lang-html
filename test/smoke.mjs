@@ -104,7 +104,7 @@ const htmlMergeBase = [
   ''
 ].join('\n');
 const htmlMergeWorker = htmlMergeBase.replace('Todo</h1>', 'Todos</h1>');
-const htmlMergeHead = htmlMergeBase.replace('type="button"', 'type="button" disabled');
+const htmlMergeHead = htmlMergeBase.replace('type="button"', 'type="button" aria-label="Save item"');
 const htmlMerged = safeMergeHtmlSource({
   id: 'html_independent_text_and_attribute',
   sourcePath: 'view.html',
@@ -116,7 +116,7 @@ assert.equal(htmlMerged.kind, 'frontier.lang.htmlSafeMerge');
 assert.equal(htmlMerged.status, 'merged');
 assert.equal(htmlMerged.operation, 'semantic-html-merge');
 assert.match(htmlMerged.mergedSourceText, /<h1>Todos<\/h1>/);
-assert.match(htmlMerged.mergedSourceText, /<button data-frontier-key="save" type="button" disabled>/);
+assert.match(htmlMerged.mergedSourceText, /<button data-frontier-key="save" type="button" aria-label="Save item">/);
 assert.equal(htmlMerged.autoMergeClaim, false);
 assert.equal(htmlMerged.semanticEquivalenceClaim, false);
 assert.equal(htmlMerged.browserRuntimeEquivalenceClaim, false);
@@ -136,15 +136,14 @@ const htmlAttributeMergeBase = [
   ''
 ].join('\n');
 const htmlAttributeMerge = safeMergeHtmlSource({
-  id: 'html_independent_attributes',
+  id: 'html_form_submitter_type_blocks_without_proof',
   sourcePath: 'view.html',
   baseSourceText: htmlAttributeMergeBase,
   workerSourceText: htmlAttributeMergeBase.replace('type="button"', 'type="submit"'),
   headSourceText: htmlAttributeMergeBase.replace('type="button"', 'type="button" aria-label="Save item"')
 });
-assert.equal(htmlAttributeMerge.status, 'merged');
-assert.match(htmlAttributeMerge.mergedSourceText, /aria-label="Save item"/);
-assert.match(htmlAttributeMerge.mergedSourceText, /type="submit"/);
+assert.equal(htmlAttributeMerge.status, 'blocked');
+assert.equal(htmlAttributeMerge.conflicts.some((conflict) => conflict.details.reasonCode === 'form-submitter-runtime-boundary'), true);
 
 const htmlTextConflict = safeMergeHtmlSource({
   id: 'html_text_conflict',
