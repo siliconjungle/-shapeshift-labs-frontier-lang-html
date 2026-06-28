@@ -57,7 +57,7 @@ function safeMergeHtmlSource(input = {}) {
     identityEvidence,
     htmlClassTokenMergeEvidence: patch.classTokenMergeEvidence,
     htmlTokenListMergeEvidence: patch.tokenListMergeEvidence,
-    htmlUnkeyedStructuralAddEvidence: patch.unkeyedStructuralAddEvidence,
+    htmlUnkeyedStructuralAddEvidence: patch.unkeyedStructuralAddEvidence, htmlUnkeyedStructuralDeleteEvidence: patch.unkeyedStructuralDeleteEvidence,
     htmlRuntimeProofs: runtimeAdmission.proofs,
     browserRuntimeEquivalenceClaim: runtimeAdmission.proofs.length > 0
   });
@@ -91,7 +91,7 @@ function singleSideMerge(id, sourcePath, base, current, operation, input, side, 
     changedRecords: changes.length,
     parserEvidence,
     identityEvidence,
-    htmlUnkeyedStructuralAddEvidence: patch.unkeyedStructuralAddEvidence,
+    htmlUnkeyedStructuralAddEvidence: patch.unkeyedStructuralAddEvidence, htmlUnkeyedStructuralDeleteEvidence: patch.unkeyedStructuralDeleteEvidence,
     htmlRuntimeProofs: runtimeAdmission.proofs,
     browserRuntimeEquivalenceClaim: runtimeAdmission.proofs.length > 0
   });
@@ -290,7 +290,7 @@ function result(id, sourcePath, status, body) {
       reasonCodes: unique((body.conflicts ?? []).map((item) => item.details.reasonCode)),
       browserRuntimeEquivalenceClaim: browserRuntimeEquivalenceClaim || undefined,
       htmlBrowserRuntimeProofs: body.htmlRuntimeProofs?.length ? body.htmlRuntimeProofs : undefined,
-      htmlUnkeyedStructuralAddEvidence: body.htmlUnkeyedStructuralAddEvidence?.length ? body.htmlUnkeyedStructuralAddEvidence : undefined
+      htmlUnkeyedStructuralAddEvidence: body.htmlUnkeyedStructuralAddEvidence?.length ? body.htmlUnkeyedStructuralAddEvidence : undefined, htmlUnkeyedStructuralDeleteEvidence: body.htmlUnkeyedStructuralDeleteEvidence?.length ? body.htmlUnkeyedStructuralDeleteEvidence : undefined
     }
   };
 }

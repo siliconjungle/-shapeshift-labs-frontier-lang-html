@@ -20,6 +20,7 @@ function structuralPatchPlan(id, sourcePath, workerChanges, workerTree, headTree
   const classTokenMergeEvidence = [];
   const tokenListMergeEvidence = [];
   const unkeyedStructuralAddEvidence = [];
+  const unkeyedStructuralDeleteEvidence = [];
   const roots = structuralRoots(workerChanges);
   for (const change of workerChanges) {
     if (containedByStructuralRoot(change, roots)) continue;
@@ -42,6 +43,7 @@ function structuralPatchPlan(id, sourcePath, workerChanges, workerTree, headTree
       const headRecord = headTree.index.get(change.key);
       if (!headRecord) continue;
       replacements.push({ start: headRecord.structuralSpan.startOffset, end: headRecord.fullSpan.endOffset, text: '' });
+      if (isSafeUnkeyedStructuralDelete(change, workerChanges)) unkeyedStructuralDeleteEvidence.push(unkeyedStructuralDeleteRecord(sourcePath, change, workerTree, headTree, headRecord));
       continue;
     }
     const headRecord = headTree.index.get(change.key);
@@ -60,7 +62,7 @@ function structuralPatchPlan(id, sourcePath, workerChanges, workerTree, headTree
     }
     else replacements.push({ start: headRecord.sourceSpan.startOffset, end: headRecord.sourceSpan.endOffset, text: change.after.value });
   }
-  return { conflicts, replacements, classTokenMergeEvidence, tokenListMergeEvidence, unkeyedStructuralAddEvidence };
+  return { conflicts, replacements, classTokenMergeEvidence, tokenListMergeEvidence, unkeyedStructuralAddEvidence, unkeyedStructuralDeleteEvidence };
 }
 
 function structuralRoots(changes, oppositeChanges = []) {
@@ -70,12 +72,20 @@ function structuralRoots(changes, oppositeChanges = []) {
 function isSafeStructuralRoot(change, sideChanges = [], oppositeChanges = []) {
   const record = change.after ?? change.before;
   return isStructural(change) && record?.kind === 'element' && record.fullSpan && record.structuralSpan &&
-    (record.explicitIdentity === true || isSafeUnkeyedStructuralAdd(change, sideChanges, oppositeChanges));
+    (record.explicitIdentity === true || isSafeUnkeyedStructuralAdd(change, sideChanges, oppositeChanges) || isSafeUnkeyedStructuralDelete(change, sideChanges, oppositeChanges));
 }
 
 function isSafeUnkeyedStructuralAdd(change, sideChanges = [], oppositeChanges = []) {
   const record = change.after;
   return change.kind === 'add' && record?.kind === 'element' && record.explicitIdentity !== true &&
+    record.parentExplicitIdentity === true && record.fullSpan && record.structuralSpan &&
+    !sameParentStructuralChanges(change, sideChanges).length &&
+    !sameParentStructuralChanges(change, oppositeChanges).length;
+}
+
+function isSafeUnkeyedStructuralDelete(change, sideChanges = [], oppositeChanges = []) {
+  const record = change.before;
+  return change.kind === 'delete' && record?.kind === 'element' && record.explicitIdentity !== true &&
     record.parentExplicitIdentity === true && record.fullSpan && record.structuralSpan &&
     !sameParentStructuralChanges(change, sideChanges).length &&
     !sameParentStructuralChanges(change, oppositeChanges).length;
@@ -107,6 +117,34 @@ function unkeyedStructuralAddRecord(sourcePath, change, workerTree, headTree) {
     headSourceHash: headTree.sourceHash,
     addedRecordFullHash: record.fullHash,
     addedRecordHash: record.recordHash,
+    autoMergeClaim: false,
+    semanticEquivalenceClaim: false,
+    browserRuntimeEquivalenceClaim: false,
+    browserRenderEquivalenceClaim: false
+  };
+  return { ...evidence, evidenceHash: hashSemanticValue(evidence) };
+}
+
+function unkeyedStructuralDeleteRecord(sourcePath, change, workerTree, headTree, headRecord) {
+  const record = change.before;
+  const evidence = {
+    kind: 'frontier.lang.htmlUnkeyedStructuralDeleteEvidence',
+    version: 1,
+    status: 'passed',
+    sourcePath,
+    recordKey: change.key,
+    parentKey: record.parentKey,
+    tagName: record.tagName,
+    parserBackedStructuralSpans: true,
+    parentExplicitIdentity: true,
+    deleteOnly: true,
+    siblingStructuralRace: false,
+    baseSourceHash: record.sourceHash,
+    workerSourceHash: workerTree.sourceHash,
+    headSourceHash: headTree.sourceHash,
+    deletedRecordFullHash: record.fullHash,
+    deletedRecordHash: record.recordHash,
+    headRecordHash: headRecord.recordHash,
     autoMergeClaim: false,
     semanticEquivalenceClaim: false,
     browserRuntimeEquivalenceClaim: false,
