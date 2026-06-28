@@ -1,4 +1,5 @@
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
+import { classTokenMergePlan } from './class-token-merge.js';
 import { parseHtmlMergeTree } from './parser-evidence.js';
 import { admitHtmlRuntimeProofs } from './runtime-proof.js';
 import { mergeIdentityEvidence } from './safe-merge-identity-evidence.js';
@@ -54,6 +55,7 @@ function safeMergeHtmlSource(input = {}) {
     headChangedRecords: changes.head.length,
     parserEvidence,
     identityEvidence,
+    htmlClassTokenMergeEvidence: patch.classTokenMergeEvidence,
     htmlRuntimeProofs: runtimeAdmission.proofs,
     browserRuntimeEquivalenceClaim: runtimeAdmission.proofs.length > 0
   });
@@ -217,12 +219,25 @@ function overlapConflicts(id, sourcePath, workerChanges, headChanges) {
 
 function elementOverlapConflicts(id, sourcePath, workerChange, headChange) {
   if (workerChange.after.tagName !== headChange.after.tagName) return [conflict(id, sourcePath, 'html-element-tag-conflict', 'html-element-tag-conflict', { recordKey: workerChange.key })];
-  return sharedAttributeConflicts(workerChange, headChange).map((attributeName) => conflict(id, sourcePath, 'html-attribute-conflict', 'html-attribute-conflict', {
-    recordKey: workerChange.key,
-    attributeName,
-    workerValue: workerChange.after.attributes[attributeName],
-    headValue: headChange.after.attributes[attributeName]
-  }));
+  return sharedAttributeConflicts(workerChange, headChange).flatMap((attribute) => {
+    if (attribute.name === 'class') {
+      const plan = classTokenMergePlan({
+        sourcePath,
+        recordKey: workerChange.key,
+        baseValue: workerChange.before.attributes.class,
+        workerValue: workerChange.after.attributes.class,
+        headValue: headChange.after.attributes.class
+      });
+      if (plan.status === 'merged') return [];
+      return [conflict(id, sourcePath, plan.reasonCode, plan.reasonCode, { recordKey: workerChange.key, attributeName: 'class', ...plan.details })];
+    }
+    return [conflict(id, sourcePath, 'html-attribute-conflict', 'html-attribute-conflict', {
+      recordKey: workerChange.key,
+      attributeName: attribute.name,
+      workerValue: workerChange.after.attributes[attribute.name],
+      headValue: headChange.after.attributes[attribute.name]
+    })];
+  });
 }
 
 function attributeChanges(before = {}, after = {}) {
@@ -233,7 +248,7 @@ function sharedAttributeConflicts(left, right) {
   const rightChanges = new Map(attributeChanges(right.before.attributes, right.after.attributes).map((item) => [item.name, item]));
   return attributeChanges(left.before.attributes, left.after.attributes)
     .filter((item) => rightChanges.has(item.name) && rightChanges.get(item.name).after !== item.after)
-    .map((item) => item.name);
+    .map((item) => ({ ...item, right: rightChanges.get(item.name) }));
 }
 
 function applyReplacements(sourceText, replacements) {

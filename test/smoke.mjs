@@ -5,6 +5,7 @@ import './runtime-proof-smoke.mjs';
 import './runtime-proof-builder-smoke.mjs';
 import './resource-runtime-proof-smoke.mjs';
 import './structural-runtime-proof-smoke.mjs';
+import './class-token-merge-smoke.mjs';
 
 const document = createDocument({ id: 'doc', name: 'TodoHtml', nodes: [
   typeNode({ id: 'type_input', name: 'TodoInput', fields: [{ id: 'field_title', name: 'title', type: 'Text' }] }),
