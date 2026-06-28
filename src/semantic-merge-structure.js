@@ -1,4 +1,4 @@
-import { classTokenMergePlan } from './class-token-merge.js';
+import { classTokenMergePlan, htmlTokenListMergePlan, isHtmlTokenListMergeAttribute } from './class-token-merge.js';
 
 function structuralConflicts(id, sourcePath, sideChanges, oppositeChanges = []) {
   const roots = structuralRoots(sideChanges);
@@ -17,6 +17,7 @@ function structuralPatchPlan(id, sourcePath, workerChanges, workerTree, headTree
   const conflicts = [];
   const replacements = [];
   const classTokenMergeEvidence = [];
+  const tokenListMergeEvidence = [];
   const roots = structuralRoots(workerChanges);
   for (const change of workerChanges) {
     if (containedByStructuralRoot(change, roots)) continue;
@@ -49,11 +50,12 @@ function structuralPatchPlan(id, sourcePath, workerChanges, workerTree, headTree
       const replacement = elementReplacement(id, sourcePath, change, headRecord);
       conflicts.push(...replacement.conflicts);
       classTokenMergeEvidence.push(...replacement.classTokenMergeEvidence);
+      tokenListMergeEvidence.push(...replacement.tokenListMergeEvidence);
       if (replacement.replacement) replacements.push(replacement.replacement);
     }
     else replacements.push({ start: headRecord.sourceSpan.startOffset, end: headRecord.sourceSpan.endOffset, text: change.after.value });
   }
-  return { conflicts, replacements, classTokenMergeEvidence };
+  return { conflicts, replacements, classTokenMergeEvidence, tokenListMergeEvidence };
 }
 
 function structuralRoots(changes) {
@@ -113,22 +115,24 @@ function elementReplacement(id, sourcePath, change, headRecord) {
   const attributes = { ...headRecord.attributes };
   const conflicts = [];
   const classTokenMergeEvidence = [];
+  const tokenListMergeEvidence = [];
   for (const attr of workerAttrs) {
-    if (attr.name === 'class' && headRecord.attributes.class !== change.before.attributes.class) {
-      const plan = classTokenMergePlan({
+    if (isHtmlTokenListMergeAttribute(attr.name) && headRecord.attributes[attr.name] !== change.before.attributes[attr.name]) {
+      const plan = tokenListPlanForAttribute(attr.name, {
         sourcePath,
         recordKey: change.key,
-        baseValue: change.before.attributes.class,
-        workerValue: change.after.attributes.class,
-        headValue: headRecord.attributes.class
+        baseValue: change.before.attributes[attr.name],
+        workerValue: change.after.attributes[attr.name],
+        headValue: headRecord.attributes[attr.name]
       });
       if (plan.status !== 'merged') {
-        conflicts.push(conflict(id, sourcePath, plan.reasonCode, plan.reasonCode, { recordKey: change.key, attributeName: 'class', ...plan.details }));
+        conflicts.push(conflict(id, sourcePath, plan.reasonCode, plan.reasonCode, { recordKey: change.key, attributeName: attr.name, ...plan.details }));
         continue;
       }
-      if (plan.value === undefined) delete attributes.class;
-      else attributes.class = plan.value;
-      classTokenMergeEvidence.push(plan.evidence);
+      if (plan.value === undefined) delete attributes[attr.name];
+      else attributes[attr.name] = plan.value;
+      tokenListMergeEvidence.push(plan.evidence);
+      if (attr.name === 'class') classTokenMergeEvidence.push(plan.evidence);
       continue;
     }
     if (attr.after === undefined) delete attributes[attr.name];
@@ -137,8 +141,13 @@ function elementReplacement(id, sourcePath, change, headRecord) {
   return {
     conflicts,
     classTokenMergeEvidence,
+    tokenListMergeEvidence,
     replacement: conflicts.length ? undefined : { start: headRecord.sourceSpan.startOffset, end: headRecord.sourceSpan.endOffset, text: renderStartTag(headRecord.tagName, attributes, headRecord.selfClosing) }
   };
+}
+
+function tokenListPlanForAttribute(attributeName, input) {
+  return attributeName === 'class' ? classTokenMergePlan(input) : htmlTokenListMergePlan({ ...input, attributeName });
 }
 
 function childOrderReplacement(id, sourcePath, change, workerTree, headTree) {

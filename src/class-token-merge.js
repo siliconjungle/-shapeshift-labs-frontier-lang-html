@@ -1,20 +1,37 @@
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
 
 function classTokenMergePlan(input = {}) {
-  const base = classTokenInfo(input.baseValue);
-  const worker = classTokenInfo(input.workerValue);
-  const head = classTokenInfo(input.headValue);
+  return htmlTokenListMergePlan({
+    ...input,
+    attributeName: 'class',
+    tokenSetSemantics: 'html-class-space-separated-tokens',
+    evidenceKind: 'frontier.lang.htmlClassTokenMergeEvidence',
+    duplicateReasonCode: 'html-class-token-duplicate-conflict',
+    orderReasonCode: 'html-class-token-order-conflict'
+  });
+}
+
+function htmlTokenListMergePlan(input = {}) {
+  const attributeName = String(input.attributeName ?? '').toLowerCase();
+  if (!isHtmlTokenListMergeAttribute(attributeName)) {
+    return blocked('html-token-list-attribute-unsupported', { attributeName });
+  }
+  const base = tokenListInfo(input.baseValue);
+  const worker = tokenListInfo(input.workerValue);
+  const head = tokenListInfo(input.headValue);
   const duplicateSides = [
     duplicateSide('base', base),
     duplicateSide('worker', worker),
     duplicateSide('head', head)
   ].filter(Boolean);
-  if (duplicateSides.length) return blocked('html-class-token-duplicate-conflict', { duplicateSides });
+  const duplicateReasonCode = input.duplicateReasonCode ?? 'html-token-list-duplicate-conflict';
+  if (duplicateSides.length) return blocked(duplicateReasonCode, { attributeName, duplicateSides });
 
   const workerOrderOnly = sameTokenSet(base.tokens, worker.tokens) && base.normalized !== worker.normalized;
   const headOrderOnly = sameTokenSet(base.tokens, head.tokens) && base.normalized !== head.normalized;
+  const orderReasonCode = input.orderReasonCode ?? 'html-token-list-order-conflict';
   if ((workerOrderOnly || headOrderOnly) && worker.normalized !== head.normalized) {
-    return blocked('html-class-token-order-conflict', { workerOrderOnly, headOrderOnly });
+    return blocked(orderReasonCode, { attributeName, workerOrderOnly, headOrderOnly });
   }
 
   const baseSet = new Set(base.tokens);
@@ -31,13 +48,14 @@ function classTokenMergePlan(input = {}) {
   ];
   const outputValue = mergedTokens.length ? mergedTokens.join(' ') : undefined;
   const evidence = {
-    kind: 'frontier.lang.htmlClassTokenMergeEvidence',
+    kind: input.evidenceKind ?? 'frontier.lang.htmlTokenListMergeEvidence',
     version: 1,
     sourcePath: input.sourcePath,
     recordKey: input.recordKey,
-    attributeName: 'class',
-    parserBackedClassList: true,
-    tokenSetSemantics: 'html-class-space-separated-tokens',
+    attributeName,
+    parserBackedTokenList: true,
+    parserBackedClassList: attributeName === 'class' ? true : undefined,
+    tokenSetSemantics: input.tokenSetSemantics ?? `html-${attributeName}-space-separated-tokens`,
     mergePolicy: 'head-order-plus-worker-additions-minus-either-side-removals',
     baseTokens: base.tokens,
     workerTokens: worker.tokens,
@@ -55,6 +73,7 @@ function classTokenMergePlan(input = {}) {
   };
   return {
     status: 'merged',
+    attributeName,
     value: outputValue,
     evidence: {
       ...evidence,
@@ -63,7 +82,11 @@ function classTokenMergePlan(input = {}) {
   };
 }
 
-function classTokenInfo(value) {
+function isHtmlTokenListMergeAttribute(attributeName) {
+  return SafeHtmlTokenListMergeAttributes.has(String(attributeName ?? '').toLowerCase());
+}
+
+function tokenListInfo(value) {
   if (value === undefined || value === null || value === true) {
     return { value, normalized: '', tokens: [], duplicateTokens: [] };
   }
@@ -100,4 +123,10 @@ function blocked(reasonCode, details = {}) {
   return { status: 'blocked', reasonCode, details };
 }
 
-export { classTokenMergePlan };
+const SafeHtmlTokenListMergeAttributes = new Set([
+  'class',
+  'part',
+  'itemprop'
+]);
+
+export { classTokenMergePlan, htmlTokenListMergePlan, isHtmlTokenListMergeAttribute };

@@ -206,8 +206,19 @@ export interface HtmlSafeMergeResult {
   readonly headChangedRecords?: number;
   readonly parserEvidence?: HtmlSafeMergeParserEvidence;
   readonly identityEvidence?: HtmlSafeMergeIdentityEvidence;
+  readonly htmlClassTokenMergeEvidence?: readonly HtmlTokenListMergeEvidence[];
+  readonly htmlTokenListMergeEvidence?: readonly HtmlTokenListMergeEvidence[];
   readonly htmlRuntimeProofs?: readonly HtmlBrowserRuntimeProofRecord[];
 }
+
+export interface HtmlTokenListMergeEvidence {
+  readonly kind: 'frontier.lang.htmlClassTokenMergeEvidence' | 'frontier.lang.htmlTokenListMergeEvidence' | string; readonly version: 1; readonly sourcePath?: string; readonly recordKey?: string; readonly attributeName: string;
+  readonly parserBackedTokenList: true; readonly parserBackedClassList?: true; readonly tokenSetSemantics: string;
+  readonly mergePolicy: 'head-order-plus-worker-additions-minus-either-side-removals' | string;
+  readonly baseTokens: readonly string[]; readonly workerTokens: readonly string[]; readonly headTokens: readonly string[]; readonly mergedTokens: readonly string[];
+  readonly workerAddedTokens: readonly string[]; readonly workerRemovedTokens: readonly string[]; readonly headAddedTokens: readonly string[]; readonly headRemovedTokens: readonly string[];
+  readonly outputValue?: string; readonly autoMergeClaim: false; readonly semanticEquivalenceClaim: false; readonly browserRuntimeEquivalenceClaim: false; readonly browserRenderEquivalenceClaim: false;
+  readonly evidenceHash: string; }
 
 export interface HtmlSafeMergeParserEvidence {
   readonly kind: 'frontier.lang.htmlSafeMergeParserEvidence';

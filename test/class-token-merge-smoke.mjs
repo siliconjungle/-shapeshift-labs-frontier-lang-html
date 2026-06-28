@@ -11,9 +11,11 @@ const htmlClassTokenMerge = safeMergeHtmlSource({
 assert.equal(htmlClassTokenMerge.status, 'merged');
 assert.match(htmlClassTokenMerge.mergedSourceText, /class="card compact selected"/);
 assert.equal(htmlClassTokenMerge.htmlClassTokenMergeEvidence.length, 1);
+assert.equal(htmlClassTokenMerge.htmlTokenListMergeEvidence.length, 1);
 assert.deepEqual(htmlClassTokenMerge.htmlClassTokenMergeEvidence[0].workerAddedTokens, ['selected']);
 assert.deepEqual(htmlClassTokenMerge.htmlClassTokenMergeEvidence[0].headAddedTokens, ['compact']);
 assert.equal(htmlClassTokenMerge.htmlClassTokenMergeEvidence[0].browserRenderEquivalenceClaim, false);
+assert.equal(htmlClassTokenMerge.htmlTokenListMergeEvidence[0].kind, 'frontier.lang.htmlClassTokenMergeEvidence');
 
 const htmlClassTokenAddRemoveMerge = safeMergeHtmlSource({
   id: 'html_class_token_add_remove_merge',

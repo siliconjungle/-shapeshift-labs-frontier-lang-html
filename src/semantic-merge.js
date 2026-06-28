@@ -1,5 +1,5 @@
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
-import { classTokenMergePlan } from './class-token-merge.js';
+import { classTokenMergePlan, htmlTokenListMergePlan, isHtmlTokenListMergeAttribute } from './class-token-merge.js';
 import { parseHtmlMergeTree } from './parser-evidence.js';
 import { admitHtmlRuntimeProofs } from './runtime-proof.js';
 import { mergeIdentityEvidence } from './safe-merge-identity-evidence.js';
@@ -56,6 +56,7 @@ function safeMergeHtmlSource(input = {}) {
     parserEvidence,
     identityEvidence,
     htmlClassTokenMergeEvidence: patch.classTokenMergeEvidence,
+    htmlTokenListMergeEvidence: patch.tokenListMergeEvidence,
     htmlRuntimeProofs: runtimeAdmission.proofs,
     browserRuntimeEquivalenceClaim: runtimeAdmission.proofs.length > 0
   });
@@ -220,16 +221,16 @@ function overlapConflicts(id, sourcePath, workerChanges, headChanges) {
 function elementOverlapConflicts(id, sourcePath, workerChange, headChange) {
   if (workerChange.after.tagName !== headChange.after.tagName) return [conflict(id, sourcePath, 'html-element-tag-conflict', 'html-element-tag-conflict', { recordKey: workerChange.key })];
   return sharedAttributeConflicts(workerChange, headChange).flatMap((attribute) => {
-    if (attribute.name === 'class') {
-      const plan = classTokenMergePlan({
+    if (isHtmlTokenListMergeAttribute(attribute.name)) {
+      const plan = tokenListPlanForAttribute(attribute.name, {
         sourcePath,
         recordKey: workerChange.key,
-        baseValue: workerChange.before.attributes.class,
-        workerValue: workerChange.after.attributes.class,
-        headValue: headChange.after.attributes.class
+        baseValue: workerChange.before.attributes[attribute.name],
+        workerValue: workerChange.after.attributes[attribute.name],
+        headValue: headChange.after.attributes[attribute.name]
       });
       if (plan.status === 'merged') return [];
-      return [conflict(id, sourcePath, plan.reasonCode, plan.reasonCode, { recordKey: workerChange.key, attributeName: 'class', ...plan.details })];
+      return [conflict(id, sourcePath, plan.reasonCode, plan.reasonCode, { recordKey: workerChange.key, attributeName: attribute.name, ...plan.details })];
     }
     return [conflict(id, sourcePath, 'html-attribute-conflict', 'html-attribute-conflict', {
       recordKey: workerChange.key,
@@ -238,6 +239,10 @@ function elementOverlapConflicts(id, sourcePath, workerChange, headChange) {
       headValue: headChange.after.attributes[attribute.name]
     })];
   });
+}
+
+function tokenListPlanForAttribute(attributeName, input) {
+  return attributeName === 'class' ? classTokenMergePlan(input) : htmlTokenListMergePlan({ ...input, attributeName });
 }
 
 function attributeChanges(before = {}, after = {}) {
