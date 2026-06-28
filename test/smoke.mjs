@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { actionNode, capabilityNode, createDocument, entityNode, typeNode } from '@shapeshift-labs/frontier-lang-kernel';
 import { createHtmlSemanticMergeEvidence, emitHtml, emitHtmlWithSourceMap, parseHtmlSemanticTree, renderHtmlAst, renderHtmlAstWithSourceMap, safeMergeHtmlSource, toHtmlAst } from '../dist/index.js';
 import './runtime-proof-smoke.mjs';
+import './runtime-proof-capsule-smoke.mjs';
 import './runtime-proof-builder-smoke.mjs';
 import './resource-runtime-proof-smoke.mjs';
 import './structural-runtime-proof-smoke.mjs';

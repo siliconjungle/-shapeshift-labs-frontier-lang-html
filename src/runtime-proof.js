@@ -1,4 +1,5 @@
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
+import { normalizeRuntimeProofCapsule, runtimeEvidenceMetadataFromProof } from '@shapeshift-labs/frontier-runtime-proof';
 
 function createHtmlRuntimeProof(input = {}) {
   const runtime = runtimeEvidenceInput(input);
@@ -30,11 +31,13 @@ function createHtmlRuntimeProof(input = {}) {
     runtimeProbeId: runtime.probeId,
     runtimeEvidenceHash: runtime.evidenceHash,
     runtimeSignals: runtime.signals,
+    ...runtimeProofCapsuleFields(runtime),
     runtimeEvidence: compactRecord({
       command: runtime.command,
       probeId: runtime.probeId,
       evidenceHash: runtime.evidenceHash,
-      signals: runtime.signals
+      signals: runtime.signals,
+      capsule: runtime.capsule
     }),
     runtimeEvidenceBound: Boolean(runtime.command && runtime.probeId && runtime.evidenceHash && runtime.signals.length),
     browserRuntimeEquivalenceClaim: false,
@@ -141,6 +144,7 @@ function htmlRuntimeProofRecord(proof, item, sourcePath, binding, hash) {
     runtimeEvidenceHash: runtimeEvidence?.evidenceHash,
     runtimeSignals: runtimeEvidence?.signals,
     requiredRuntimeSignals: runtimeEvidence?.requiredSignals,
+    ...runtimeProofCapsuleFields(runtimeEvidence),
     runtimeEvidenceBound: runtimeEvidence !== undefined,
     browserRuntimeEquivalenceClaim: true,
     browserRenderEquivalenceClaim: false,
@@ -151,6 +155,9 @@ function htmlRuntimeProofRecord(proof, item, sourcePath, binding, hash) {
 
 function htmlRuntimeEvidenceMetadata(proof, reasonCode, boundary) {
   const requiredSignals = requiredHtmlRuntimeSignals(reasonCode, boundary);
+  const capsule = normalizeRuntimeProofCapsule(proof);
+  if (capsule?.valid === false) return undefined;
+  if (capsule?.valid === true) return runtimeEvidenceMetadataFromProof(proof, { requiredSignals });
   const signals = runtimeSignals(proof);
   const command = firstString(
     proof.runtimeCommand,
@@ -261,12 +268,33 @@ function proofCoversValue(value, values, expected) { return value === expected |
 function asArray(value) { return Array.isArray(value) ? value : value === undefined ? [] : [value]; }
 
 function runtimeEvidenceInput(input) {
+  const capsule = normalizeRuntimeProofCapsule(input);
+  if (capsule?.valid === false) return {};
+  if (capsule?.valid === true) return runtimeEvidenceMetadataFromProof(input) ?? {};
   return {
     command: firstString(input.runtimeCommand, input.browserCommand, input.command, input.commandId, input.probeCommand, input.evidence?.command, input.runtimeEvidence?.command, input.browserEvidence?.command),
     probeId: firstString(input.runtimeProbeId, input.browserProbeId, input.probeId, input.probe?.id, input.evidence?.probeId, input.runtimeEvidence?.probeId, input.browserEvidence?.probeId),
     evidenceHash: firstString(input.runtimeEvidenceHash, input.browserEvidenceHash, input.evidenceHash, input.domEvidenceHash, input.renderEvidenceHash, input.hydrationEvidenceHash, input.resourceEvidenceHash, input.evidence?.hash, input.evidence?.evidenceHash, input.runtimeEvidence?.hash, input.runtimeEvidence?.evidenceHash, input.browserEvidence?.hash, input.browserEvidence?.evidenceHash),
     signals: runtimeSignals(input)
   };
+}
+
+function runtimeProofCapsuleFields(runtime = {}) {
+  const capsule = runtime?.capsule;
+  return compactRecord({
+    runtimeProofCapsule: capsule,
+    runtimeProofMode: capsule?.mode,
+    runtimeProofCapsuleHash: capsule?.hash,
+    runtimeBrowserName: capsule?.browserName,
+    runtimeBrowserVersion: capsule?.browserVersion,
+    runtimeViewport: capsule?.viewport,
+    runtimeTelemetryHash: capsule?.telemetryHash,
+    runtimeDomSnapshotHash: capsule?.domSnapshotHash,
+    runtimeComputedStyleHash: capsule?.computedStyleHash,
+    runtimeLayoutSnapshotHash: capsule?.layoutSnapshotHash,
+    runtimeEventTraceHash: capsule?.eventTraceHash,
+    runtimeCumulativeLayoutShift: capsule?.cumulativeLayoutShift
+  });
 }
 
 function sourceHash(input, role) {

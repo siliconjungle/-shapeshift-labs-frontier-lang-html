@@ -30,6 +30,30 @@ assert.equal(scriptProof.runtimeEvidenceBound, true);
 assert.equal(scriptProof.browserRuntimeEquivalenceClaim, false);
 assert.equal(scriptProof.autoMergeClaim, false);
 
+const capsuleScriptProof = createHtmlRuntimeProof({
+  id: 'proof_html_builder_script_runtime_capsule',
+  sourcePath: 'view.html',
+  reasonCode: 'script-runtime-boundary',
+  side: 'worker',
+  recordKey: 'text#script[1]/#text[1]',
+  base,
+  worker,
+  head,
+  output,
+  runtimeProofCapsule: {
+    mode: 'app-shell-fixture',
+    status: 'passed',
+    command: 'playwright test html-builder-runtime-capsule.spec.ts',
+    probeId: 'html:script-runtime-boundary:builder',
+    evidenceHash: hashSemanticValue('html builder script runtime capsule evidence'),
+    signals: ['html-script-runtime'],
+    telemetry: { hash: 'html-builder-capsule-telemetry', cumulativeLayoutShift: 0 }
+  }
+});
+assert.equal(capsuleScriptProof.runtimeCommand, 'playwright test html-builder-runtime-capsule.spec.ts');
+assert.equal(capsuleScriptProof.runtimeProofMode, 'app-shell-fixture');
+assert.equal(capsuleScriptProof.runtimeTelemetryHash, 'html-builder-capsule-telemetry');
+
 const scriptMerged = safeMergeHtmlSource({
   id: 'html_builder_script_runtime_proven',
   sourcePath: 'view.html',
@@ -63,6 +87,28 @@ const eventProof = createHtmlRuntimeBoundaryProof({
   runtimeSignals: ['html-event-handler-runtime']
 });
 assert.equal(eventProof.kind, 'html-source-bound-runtime-boundary-proof');
+
+const capsuleEventProof = createHtmlRuntimeBoundaryProof({
+  id: 'proof_html_builder_event_runtime_capsule',
+  sourcePath: 'view.html',
+  reasonCode: 'event-handler-runtime-boundary',
+  boundary: 'html-event-handler-attribute',
+  boundaryAttributes: ['onclick'],
+  base: eventBase,
+  worker: eventWorker,
+  head: eventHead,
+  output: eventOutput,
+  runtimeProofCapsule: {
+    mode: 'isolated-fixture',
+    status: 'passed',
+    command: 'playwright test html-builder-event-runtime-capsule.spec.ts',
+    probeId: 'html:event-handler-runtime-boundary:builder',
+    evidenceHash: hashSemanticValue('html builder event runtime capsule evidence'),
+    signals: ['html-event-handler-runtime'],
+    telemetry: { hash: 'html-builder-event-capsule-telemetry', cumulativeLayoutShift: 0 }
+  }
+});
+assert.equal(capsuleEventProof.runtimeProofMode, 'isolated-fixture');
 
 const eventMerged = safeMergeHtmlSource({
   id: 'html_builder_event_runtime_proven',
