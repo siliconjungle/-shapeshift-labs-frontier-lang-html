@@ -1,13 +1,14 @@
 import { classTokenMergePlan, htmlTokenListMergePlan, isHtmlTokenListMergeAttribute } from './class-token-merge.js';
+import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
 
 function structuralConflicts(id, sourcePath, sideChanges, oppositeChanges = []) {
-  const roots = structuralRoots(sideChanges);
+  const roots = structuralRoots(sideChanges, oppositeChanges);
   const conflicts = [];
   for (const change of sideChanges) {
     if ((change.after ?? change.before)?.kind === 'child-order') continue;
     if (!isStructural(change)) continue;
     if (containedByStructuralRoot(change, roots)) continue;
-    if (!isSafeStructuralRoot(change)) conflicts.push(conflict(id, sourcePath, 'html-structural-add-delete-unsupported', 'html-structural-add-delete-unsupported', { recordKey: change.key, changeKind: change.kind }));
+    if (!isSafeStructuralRoot(change, sideChanges, oppositeChanges)) conflicts.push(conflict(id, sourcePath, 'html-structural-add-delete-unsupported', 'html-structural-add-delete-unsupported', { recordKey: change.key, changeKind: change.kind }));
   }
   for (const root of roots) conflicts.push(...oppositeOverlapConflicts(id, sourcePath, root, oppositeChanges));
   return conflicts;
@@ -18,6 +19,7 @@ function structuralPatchPlan(id, sourcePath, workerChanges, workerTree, headTree
   const replacements = [];
   const classTokenMergeEvidence = [];
   const tokenListMergeEvidence = [];
+  const unkeyedStructuralAddEvidence = [];
   const roots = structuralRoots(workerChanges);
   for (const change of workerChanges) {
     if (containedByStructuralRoot(change, roots)) continue;
@@ -30,7 +32,10 @@ function structuralPatchPlan(id, sourcePath, workerChanges, workerTree, headTree
       }
       const offset = insertionOffset(change.after, workerTree, headTree);
       if (offset === undefined) conflicts.push(conflict(id, sourcePath, 'html-structural-anchor-missing', 'html-structural-anchor-missing', { recordKey: change.key }));
-      else replacements.push({ start: offset, end: offset, text: insertText(change.after, workerTree) });
+      else {
+        replacements.push({ start: offset, end: offset, text: insertText(change.after, workerTree) });
+        if (isSafeUnkeyedStructuralAdd(change, workerChanges)) unkeyedStructuralAddEvidence.push(unkeyedStructuralAddRecord(sourcePath, change, workerTree, headTree));
+      }
       continue;
     }
     if (change.kind === 'delete') {
@@ -55,16 +60,59 @@ function structuralPatchPlan(id, sourcePath, workerChanges, workerTree, headTree
     }
     else replacements.push({ start: headRecord.sourceSpan.startOffset, end: headRecord.sourceSpan.endOffset, text: change.after.value });
   }
-  return { conflicts, replacements, classTokenMergeEvidence, tokenListMergeEvidence };
+  return { conflicts, replacements, classTokenMergeEvidence, tokenListMergeEvidence, unkeyedStructuralAddEvidence };
 }
 
-function structuralRoots(changes) {
-  return changes.filter((change) => isSafeStructuralRoot(change));
+function structuralRoots(changes, oppositeChanges = []) {
+  return changes.filter((change) => isSafeStructuralRoot(change, changes, oppositeChanges));
 }
 
-function isSafeStructuralRoot(change) {
+function isSafeStructuralRoot(change, sideChanges = [], oppositeChanges = []) {
   const record = change.after ?? change.before;
-  return isStructural(change) && record?.kind === 'element' && record.explicitIdentity === true && record.fullSpan && record.structuralSpan;
+  return isStructural(change) && record?.kind === 'element' && record.fullSpan && record.structuralSpan &&
+    (record.explicitIdentity === true || isSafeUnkeyedStructuralAdd(change, sideChanges, oppositeChanges));
+}
+
+function isSafeUnkeyedStructuralAdd(change, sideChanges = [], oppositeChanges = []) {
+  const record = change.after;
+  return change.kind === 'add' && record?.kind === 'element' && record.explicitIdentity !== true &&
+    record.parentExplicitIdentity === true && record.fullSpan && record.structuralSpan &&
+    !sameParentStructuralChanges(change, sideChanges).length &&
+    !sameParentStructuralChanges(change, oppositeChanges).length;
+}
+
+function sameParentStructuralChanges(change, changes = []) {
+  const record = change.after ?? change.before;
+  return changes.filter((candidate) => candidate !== change && isStructural(candidate)).filter((candidate) => {
+    const candidateRecord = candidate.after ?? candidate.before;
+    return candidateRecord?.parentKey === record?.parentKey && !pathContains(record?.path, candidateRecord?.path);
+  });
+}
+
+function unkeyedStructuralAddRecord(sourcePath, change, workerTree, headTree) {
+  const record = change.after;
+  const evidence = {
+    kind: 'frontier.lang.htmlUnkeyedStructuralAddEvidence',
+    version: 1,
+    status: 'passed',
+    sourcePath,
+    recordKey: change.key,
+    parentKey: record.parentKey,
+    tagName: record.tagName,
+    parserBackedStructuralSpans: true,
+    parentExplicitIdentity: true,
+    addOnly: true,
+    siblingStructuralRace: false,
+    workerSourceHash: workerTree.sourceHash,
+    headSourceHash: headTree.sourceHash,
+    addedRecordFullHash: record.fullHash,
+    addedRecordHash: record.recordHash,
+    autoMergeClaim: false,
+    semanticEquivalenceClaim: false,
+    browserRuntimeEquivalenceClaim: false,
+    browserRenderEquivalenceClaim: false
+  };
+  return { ...evidence, evidenceHash: hashSemanticValue(evidence) };
 }
 
 function isStructural(change) {

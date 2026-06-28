@@ -44,6 +44,7 @@ function parseHtmlMergeTree(sourceText, options = {}) {
     records,
     index,
     sourceText,
+    sourceHash: semantic.sourceHash,
     treeHash: hashSemanticValue({ kind: 'frontier.lang.html.merge.tree.v2.parse5', records: records.map(hashableMergeRecord), parseErrors: semantic.parser.parseErrors }),
     parser: semantic.parser,
     proofGaps: semantic.proofGaps
@@ -182,7 +183,10 @@ function childOrderRecords(records, sourceHash, sourcePath) {
   const byPath = new Map(elementRecords.map((record) => [record.path.join('/'), record]));
   for (const record of elementRecords) {
     const parent = byPath.get((record.parentPath ?? record.path.slice(0, -1)).join('/'));
-    if (parent) record.parentKey = parent.key;
+    if (parent) {
+      record.parentKey = parent.key;
+      record.parentExplicitIdentity = parent.explicitIdentity === true;
+    }
   }
   const groups = new Map();
   for (const record of elementRecords) {

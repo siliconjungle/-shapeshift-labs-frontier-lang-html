@@ -57,6 +57,7 @@ function safeMergeHtmlSource(input = {}) {
     identityEvidence,
     htmlClassTokenMergeEvidence: patch.classTokenMergeEvidence,
     htmlTokenListMergeEvidence: patch.tokenListMergeEvidence,
+    htmlUnkeyedStructuralAddEvidence: patch.unkeyedStructuralAddEvidence,
     htmlRuntimeProofs: runtimeAdmission.proofs,
     browserRuntimeEquivalenceClaim: runtimeAdmission.proofs.length > 0
   });
@@ -66,6 +67,7 @@ function singleSideMerge(id, sourcePath, base, current, operation, input, side, 
   if (base === current) return merged(id, sourcePath, current, operation);
   const trees = { base: parseMergeTree(base, sourcePath), [side]: parseMergeTree(current, sourcePath) };
   const changes = changedRecords(trees.base.index, trees[side].index, side);
+  const patch = structuralPatchPlan(id, sourcePath, changes, trees[side], trees.base);
   const runtimeAdmission = admitHtmlRuntimeProofs({
     id,
     sourcePath,
@@ -89,6 +91,7 @@ function singleSideMerge(id, sourcePath, base, current, operation, input, side, 
     changedRecords: changes.length,
     parserEvidence,
     identityEvidence,
+    htmlUnkeyedStructuralAddEvidence: patch.unkeyedStructuralAddEvidence,
     htmlRuntimeProofs: runtimeAdmission.proofs,
     browserRuntimeEquivalenceClaim: runtimeAdmission.proofs.length > 0
   });
@@ -286,7 +289,8 @@ function result(id, sourcePath, status, body) {
       reviewRequired: status !== 'merged',
       reasonCodes: unique((body.conflicts ?? []).map((item) => item.details.reasonCode)),
       browserRuntimeEquivalenceClaim: browserRuntimeEquivalenceClaim || undefined,
-      htmlBrowserRuntimeProofs: body.htmlRuntimeProofs?.length ? body.htmlRuntimeProofs : undefined
+      htmlBrowserRuntimeProofs: body.htmlRuntimeProofs?.length ? body.htmlRuntimeProofs : undefined,
+      htmlUnkeyedStructuralAddEvidence: body.htmlUnkeyedStructuralAddEvidence?.length ? body.htmlUnkeyedStructuralAddEvidence : undefined
     }
   };
 }

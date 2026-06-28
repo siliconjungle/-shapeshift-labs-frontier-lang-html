@@ -175,16 +175,14 @@ export interface HtmlSafeMergeConflict {
   readonly sourcePath?: string;
   readonly details: Readonly<Record<string, unknown>> & { readonly reasonCode: string; readonly conflictKey: string };
 }
-
 export interface HtmlSafeMergeAdmission {
   readonly status: 'auto-merge-candidate' | 'blocked' | string;
   readonly action: 'apply-html' | 'human-review' | string;
   readonly reviewRequired: boolean;
   readonly reasonCodes: readonly string[];
   readonly browserRuntimeEquivalenceClaim?: true;
-  readonly htmlBrowserRuntimeProofs?: readonly HtmlBrowserRuntimeProofRecord[];
+  readonly htmlBrowserRuntimeProofs?: readonly HtmlBrowserRuntimeProofRecord[]; readonly htmlUnkeyedStructuralAddEvidence?: readonly HtmlUnkeyedStructuralAddEvidence[];
 }
-
 export interface HtmlSafeMergeResult {
   readonly kind: 'frontier.lang.htmlSafeMerge';
   readonly version: 1;
@@ -208,8 +206,9 @@ export interface HtmlSafeMergeResult {
   readonly identityEvidence?: HtmlSafeMergeIdentityEvidence;
   readonly htmlClassTokenMergeEvidence?: readonly HtmlTokenListMergeEvidence[];
   readonly htmlTokenListMergeEvidence?: readonly HtmlTokenListMergeEvidence[];
-  readonly htmlRuntimeProofs?: readonly HtmlBrowserRuntimeProofRecord[];
+  readonly htmlRuntimeProofs?: readonly HtmlBrowserRuntimeProofRecord[]; readonly htmlUnkeyedStructuralAddEvidence?: readonly HtmlUnkeyedStructuralAddEvidence[];
 }
+export interface HtmlUnkeyedStructuralAddEvidence { readonly kind: 'frontier.lang.htmlUnkeyedStructuralAddEvidence'; readonly version: 1; readonly status: 'passed' | string; readonly sourcePath?: string; readonly recordKey?: string; readonly parentKey?: string; readonly tagName?: string; readonly parserBackedStructuralSpans: true; readonly parentExplicitIdentity: true; readonly addOnly: true; readonly siblingStructuralRace: false; readonly autoMergeClaim: false; readonly semanticEquivalenceClaim: false; readonly browserRuntimeEquivalenceClaim: false; readonly browserRenderEquivalenceClaim: false; readonly evidenceHash: string; readonly [key:string]: unknown; }
 
 export interface HtmlTokenListMergeEvidence {
   readonly kind: 'frontier.lang.htmlClassTokenMergeEvidence' | 'frontier.lang.htmlTokenListMergeEvidence' | string; readonly version: 1; readonly sourcePath?: string; readonly recordKey?: string; readonly attributeName: string;

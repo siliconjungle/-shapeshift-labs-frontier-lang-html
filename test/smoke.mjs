@@ -7,6 +7,7 @@ import './resource-runtime-proof-smoke.mjs';
 import './structural-runtime-proof-smoke.mjs';
 import './class-token-merge-smoke.mjs';
 import './token-list-merge-smoke.mjs';
+import './unkeyed-structural-add-smoke.mjs';
 
 const document = createDocument({ id: 'doc', name: 'TodoHtml', nodes: [
   typeNode({ id: 'type_input', name: 'TodoInput', fields: [{ id: 'field_title', name: 'title', type: 'Text' }] }),
@@ -244,8 +245,9 @@ const htmlPathOnlyAddConflict = safeMergeHtmlSource({
   workerSourceText: ['<ul id="todos">', '  <li>B</li>', '</ul>', ''].join('\n'),
   headSourceText: ['<ul id="todos">', '</ul>', ''].join('\n')
 });
-assert.equal(htmlPathOnlyAddConflict.status, 'blocked');
-assert.equal(htmlPathOnlyAddConflict.conflicts.some((conflict) => conflict.code === 'html-structural-add-delete-unsupported'), true);
+assert.equal(htmlPathOnlyAddConflict.status, 'merged');
+assert.equal(htmlPathOnlyAddConflict.htmlUnkeyedStructuralAddEvidence.length, 1);
+assert.equal(htmlPathOnlyAddConflict.htmlUnkeyedStructuralAddEvidence[0].parentExplicitIdentity, true);
 
 const htmlListReorderBase = [
   '<ul id="todos">',
