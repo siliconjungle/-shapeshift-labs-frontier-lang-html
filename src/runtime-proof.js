@@ -1,5 +1,5 @@
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
-import { normalizeRuntimeProofCapsule, runtimeEvidenceMetadataFromProof, validateRuntimeProofAgainstProbe } from '@shapeshift-labs/frontier-runtime-proof';
+import { normalizeRuntimeProofCapsule, runtimeEvidenceMetadataFromProof, runtimeProofBroadClaimFields, validateRuntimeProofAgainstProbe } from '@shapeshift-labs/frontier-runtime-proof';
 
 function createHtmlRuntimeProof(input = {}) {
   const runtime = runtimeEvidenceInput(input);
@@ -58,13 +58,21 @@ function admitHtmlRuntimeProofs({ id, sourcePath, input, proofGaps, binding, has
   for (const item of proofGaps) {
     const proof = proofs.find((candidate) => isHtmlRuntimeProofForGap(candidate, item, sourcePath, binding, hash));
     if (proof) admitted.push(htmlRuntimeProofRecord(proof, item, sourcePath, binding, hash));
-    else conflicts.push(conflict(id, sourcePath, 'html-proof-gap-blocked', item.gap.code, {
-      recordKey: item.change.key,
-      boundary: item.boundary,
-      attributeName: item.attributeName,
-      boundaryAttributes: item.boundaryAttributes,
-      proofGap: item.gap
-    }));
+    else {
+      const broadClaimProof = proofs.find((candidate) => {
+        return runtimeProofBroadClaimFields(candidate).length > 0 &&
+          isHtmlRuntimeProofForGap(candidate, item, sourcePath, binding, hash, { rejectBroadClaims: false });
+      });
+      conflicts.push(broadClaimProof
+        ? broadClaimConflict(id, sourcePath, broadClaimProof, item)
+        : conflict(id, sourcePath, 'html-proof-gap-blocked', item.gap.code, {
+          recordKey: item.change.key,
+          boundary: item.boundary,
+          attributeName: item.attributeName,
+          boundaryAttributes: item.boundaryAttributes,
+          proofGap: item.gap
+        }));
+    }
   }
   return { proofs: admitted, conflicts };
 }
@@ -92,7 +100,7 @@ function htmlRuntimeProofCandidates(input = {}, sourcePath) {
   ].flatMap(asArray).filter(Boolean);
 }
 
-function isHtmlRuntimeProofForGap(proof, item, sourcePath, binding, hash) {
+function isHtmlRuntimeProofForGap(proof, item, sourcePath, binding, hash, options = {}) {
   return Boolean(proof && typeof proof === 'object') &&
     HtmlRuntimeProofKinds.has(proof.kind) &&
     proof.status === 'passed' &&
@@ -106,6 +114,7 @@ function isHtmlRuntimeProofForGap(proof, item, sourcePath, binding, hash) {
     htmlProofSourceMatches(proof, 'worker', binding.worker, hash) &&
     htmlProofSourceMatches(proof, 'head', binding.head, hash) &&
     htmlProofSourceMatches(proof, 'output', binding.output, hash) &&
+    (options.rejectBroadClaims === false || runtimeProofBroadClaimFields(proof).length === 0) &&
     htmlRuntimeEvidenceMetadata(proof, item.gap.code, item.boundary) !== undefined;
 }
 
@@ -214,16 +223,25 @@ function requiredHtmlRuntimeSignals(reasonCode, boundary) {
   return ['html-browser-runtime', 'browser-runtime'];
 }
 
-function firstString(...values) {
-  return values.find((value) => typeof value === 'string' && value.length > 0);
-}
-
-function uniqueStrings(values) {
-  return [...new Set(values)];
-}
+function firstString(...values) { return values.find((value) => typeof value === 'string' && value.length > 0); }
+function uniqueStrings(values) { return [...new Set(values)]; }
 
 function conflict(id, sourcePath, code, reasonCode, details = {}) {
   return { code, gateId: 'html-semantic-merge', sourcePath, details: { reasonCode, conflictKey: `html#${id}#${reasonCode}#${details.recordKey ?? sourcePath ?? 'source'}`, ...details } };
+}
+
+function broadClaimConflict(id, sourcePath, proof, item) {
+  return conflict(id, sourcePath, 'html-runtime-proof-broad-claim', 'html-runtime-proof-broad-claim', {
+    proofId: proof.id,
+    recordKey: item.change.key,
+    boundary: item.boundary,
+    attributeName: item.attributeName,
+    boundaryAttributes: item.boundaryAttributes,
+    proofGap: item.gap,
+    broadClaimFields: runtimeProofBroadClaimFields(proof),
+    proofGapCode: item.gap.code,
+    summary: 'HTML runtime proofs cannot self-assert broad browser, render, semantic, or auto-merge equivalence claims.'
+  });
 }
 
 function proofCoversRecordOrBoundary(proof, item) {

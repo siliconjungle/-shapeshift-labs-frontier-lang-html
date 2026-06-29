@@ -66,6 +66,26 @@ assert.equal(capsuleProven.htmlRuntimeProofs[0].runtimeScreenshotHash, 'html-cap
 assert.equal(capsuleProven.htmlRuntimeProofs[0].runtimeCumulativeLayoutShift, 0);
 assert.equal(typeof capsuleProven.htmlRuntimeProofs[0].runtimeProofCapsuleHash, 'string');
 
+const broadClaimCapsule = safeMergeHtmlSource({
+  id: 'html_runtime_capsule_broad_claim',
+  sourcePath: 'view.html',
+  baseSourceText: base,
+  workerSourceText: worker,
+  headSourceText: head,
+  htmlBrowserRuntimeProofs: [{
+    ...capsuleProof,
+    id: 'proof_html_script_runtime_capsule_broad_claim',
+    runtimeProofCapsule: {
+      ...capsuleProof.runtimeProofCapsule,
+      renderEquivalenceClaim: true
+    }
+  }]
+});
+assert.equal(broadClaimCapsule.status, 'blocked');
+assert.equal(broadClaimCapsule.htmlRuntimeProofs.length, 0);
+assert.equal(broadClaimCapsule.conflicts.some((conflict) => conflict.code === 'html-runtime-proof-broad-claim'), true);
+assert.equal(broadClaimCapsule.conflicts.some((conflict) => conflict.details.broadClaimFields?.includes('runtimeProofCapsule.renderEquivalenceClaim')), true);
+
 const missingAccessibilityCapsule = safeMergeHtmlSource({
   id: 'html_runtime_capsule_missing_accessibility',
   sourcePath: 'view.html',
