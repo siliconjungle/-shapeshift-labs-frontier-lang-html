@@ -32,6 +32,8 @@ assert.equal(unkeyedMoveMerged.htmlUnkeyedStructuralMoveEvidence[0].moveOnly, tr
 assert.equal(unkeyedMoveMerged.htmlUnkeyedStructuralMoveEvidence[0].keyedSiblingAnchor, true);
 assert.equal(unkeyedMoveMerged.htmlUnkeyedStructuralMoveEvidence[0].semanticEquivalenceClaim, false);
 assert.equal(unkeyedMoveMerged.admission.htmlUnkeyedStructuralMoveEvidence.length, 1);
+assert.equal(unkeyedMoveMerged.parserEvidence.sourceSpanMissingRecordCount, 0);
+assert.equal(unkeyedMoveMerged.parserEvidence.structuralSpanMissingRecordCount, 0);
 
 const unkeyedMoveSiblingRaceBlocked = safeMergeHtmlSource({
   id: 'html_unkeyed_structural_move_sibling_race_blocked',

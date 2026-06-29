@@ -22,7 +22,7 @@ function mergeParserEvidence(trees) {
 }
 
 function treeParserEvidence(tree) {
-  const records = tree.records ?? [];
+  const records = (tree.records ?? []).filter(isParserSourceRecord);
   const sourceSpanRecordCount = records.filter(hasSourceSpan).length;
   const recordsWithAttributes = records.filter((record) => record.kind === 'element' && Object.keys(record.attributes ?? {}).length);
   const attributeSpanElementCount = recordsWithAttributes.filter(hasCompleteAttributeSpans).length;
@@ -44,6 +44,10 @@ function treeParserEvidence(tree) {
     structuralSpanMissingRecordCount: records.length - structuralSpanRecordCount,
     leadingTriviaSpanRecordCount
   };
+}
+
+function isParserSourceRecord(record) {
+  return record.kind !== 'child-order';
 }
 
 function hasSourceSpan(record) {
