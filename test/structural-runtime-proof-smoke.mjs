@@ -28,6 +28,7 @@ function runtimeSignals(reasonCode, boundary) {
   if (text.includes('template')) return ['html-template-runtime'];
   if (text.includes('slot')) return ['html-slot-runtime'];
   if (text.includes('custom-element')) return ['html-custom-element-runtime'];
+  if (text.includes('custom-runtime-attribute')) return ['html-custom-runtime-attribute-runtime'];
   if (text.includes('framework-directive')) return ['html-framework-directive-runtime'];
   return ['html-browser-runtime'];
 }
@@ -89,6 +90,31 @@ const customProven = safeMergeHtmlSource({
 });
 assert.equal(customProven.status, 'merged');
 assert.equal(customProven.htmlRuntimeProofs[0].boundary, 'html-custom-element-runtime');
+
+const customAttributeBase = '<button data-frontier-key="load" hx-get="/old" data-hx-trigger="click">Load</button>\n';
+const customAttributeWorker = '<button data-frontier-key="load" hx-get="/new" data-hx-trigger="revealed">Load</button>\n';
+const customAttributeBlocked = safeMergeHtmlSource({ id: 'html_custom_runtime_attribute_blocked', sourcePath: 'view.html', baseSourceText: customAttributeBase, workerSourceText: customAttributeWorker, headSourceText: customAttributeBase });
+assert.equal(customAttributeBlocked.status, 'blocked');
+assert.equal(customAttributeBlocked.conflicts.some((conflict) => conflict.details.reasonCode === 'custom-runtime-attribute-boundary' && conflict.details.boundary === 'html-custom-runtime-attribute'), true);
+const customAttributeProven = safeMergeHtmlSource({
+  id: 'html_custom_runtime_attribute_proven',
+  sourcePath: 'view.html',
+  baseSourceText: customAttributeBase,
+  workerSourceText: customAttributeWorker,
+  headSourceText: customAttributeBase,
+  htmlRuntimeBoundaryProofs: [sourceBoundProof({
+    id: 'proof_html_custom_runtime_attribute',
+    reasonCode: 'custom-runtime-attribute-boundary',
+    boundary: 'html-custom-runtime-attribute',
+    boundaryAttributes: ['hx-get', 'data-hx-trigger'],
+    base: customAttributeBase,
+    worker: customAttributeWorker,
+    head: customAttributeBase,
+    output: customAttributeWorker
+  })]
+});
+assert.equal(customAttributeProven.status, 'merged');
+assert.equal(customAttributeProven.htmlRuntimeProofs[0].boundary, 'html-custom-runtime-attribute');
 
 const directiveBase = '<div data-frontier-key="panel" :class="oldClass">Panel</div>\n';
 const directiveWorker = '<div data-frontier-key="panel" :class="nextClass">Panel</div>\n';

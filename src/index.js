@@ -189,10 +189,12 @@ function htmlProofGaps(parsed) {
   const gaps = [];
   if (RuntimeBoundaryTags.has(parsed.tagName)) gaps.push(proofGap(`${parsed.tagName}-runtime-boundary`, `HTML <${parsed.tagName}> runtime/template semantics require host evidence.`));
   if (parsed.tagName.includes('-')) gaps.push(proofGap('custom-element-runtime-boundary', 'Custom element upgrade and lifecycle semantics require browser/runtime evidence.'));
+  if (Object.keys(parsed.attributes).some(isCustomRuntimeAttribute)) gaps.push(proofGap('custom-runtime-attribute-boundary', 'Custom runtime attribute semantics require client runtime evidence.'));
   if (Object.keys(parsed.attributes).some((key) => key.startsWith('@') || key.startsWith(':') || key.startsWith('v-') || key.startsWith('x-'))) gaps.push(proofGap('framework-directive-boundary', 'Framework directive semantics require framework-specific evidence.'));
   return gaps;
 }
 
+function isCustomRuntimeAttribute(name) { return name.startsWith('hx-') || name.startsWith('data-hx-'); }
 function proofGap(code, summary) { return { code, status: 'not-claimed', summary, failClosed: true, semanticEquivalenceClaim: false }; }
 function nextOrdinal(parent, key) { const next = (parent.childCounts.get(key) ?? 0) + 1; parent.childCounts.set(key, next); return next; }
 function hashableHtmlRecord(record) { return { kind: record.kind, tagName: record.tagName, path: record.path, identityKey: record.identityKey, attributes: record.attributes, textHash: record.textHash, commentHash: record.commentHash, proofGaps: record.proofGaps?.map((gap) => gap.code) }; }

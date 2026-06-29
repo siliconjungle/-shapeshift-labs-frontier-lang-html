@@ -126,29 +126,24 @@ function proofGapBoundaryMetadata(change, gap) {
   if (reasonCode === 'template-runtime-boundary') return { boundary: 'html-template-runtime' };
   if (reasonCode === 'slot-runtime-boundary') return { boundary: 'html-slot-runtime' };
   if (reasonCode === 'custom-element-runtime-boundary') return { boundary: 'html-custom-element-runtime' };
-  if (reasonCode === 'framework-directive-boundary') {
-    const boundaryAttributes = changedFrameworkDirectiveAttributes(change);
-    return compactRecord({
-      boundary: 'html-framework-directive',
-      boundaryAttributes,
-      attributeName: boundaryAttributes.length === 1 ? boundaryAttributes[0] : undefined
-    });
-  }
+  if (reasonCode === 'custom-runtime-attribute-boundary') return attributeBoundaryMetadata('html-custom-runtime-attribute', changedCustomRuntimeAttributes(change));
+  if (reasonCode === 'framework-directive-boundary') return attributeBoundaryMetadata('html-framework-directive', changedFrameworkDirectiveAttributes(change));
   if (record?.kind === 'element') return { boundary: `html-${record.tagName}-runtime` };
   return {};
 }
 
-function changedFrameworkDirectiveAttributes(change) {
+function changedFrameworkDirectiveAttributes(change) { return changedAttributesMatching(change, isFrameworkDirectiveAttribute); }
+function changedCustomRuntimeAttributes(change) { return changedAttributesMatching(change, isCustomRuntimeAttribute); }
+
+function changedAttributesMatching(change, predicate) {
   const before = change.before?.kind === 'element' ? change.before.attributes ?? {} : {};
   const after = change.after?.kind === 'element' ? change.after.attributes ?? {} : {};
-  const changed = attributeChanges(before, after).map((attribute) => attribute.name).filter(isFrameworkDirectiveAttribute);
+  const changed = attributeChanges(before, after).map((attribute) => attribute.name).filter(predicate);
   if (changed.length) return unique(changed);
-  return unique([...Object.keys(before), ...Object.keys(after)].filter(isFrameworkDirectiveAttribute));
+  return unique([...Object.keys(before), ...Object.keys(after)].filter(predicate));
 }
 
-function runtimeProofChecks(changes) {
-  return [...proofGapChecks(changes), ...attributeRuntimeChecks(changes)];
-}
+function runtimeProofChecks(changes) { return [...proofGapChecks(changes), ...attributeRuntimeChecks(changes)]; }
 
 function attributeRuntimeChecks(changes) {
   return changes.flatMap((change) => {
@@ -160,11 +155,7 @@ function attributeRuntimeChecks(changes) {
   });
 }
 
-function attributeRuntimeCheck(change, attribute, tagName) {
-  const name = attribute.name.toLowerCase();
-  const spec = runtimeAttributeSpec(name, tagName);
-  return spec ? [{ change, attributeName: name, boundaryAttributes: [name], ...spec, gap: proofGap(spec.reasonCode, spec.summary) }] : [];
-}
+function attributeRuntimeCheck(change, attribute, tagName) { const name = attribute.name.toLowerCase(); const spec = runtimeAttributeSpec(name, tagName); return spec ? [{ change, attributeName: name, boundaryAttributes: [name], ...spec, gap: proofGap(spec.reasonCode, spec.summary) }] : []; }
 
 function runtimeAttributeSpec(name, tagName) {
   if (/^on[\w:.-]+$/i.test(name)) return { boundary: 'html-event-handler-attribute', reasonCode: 'event-handler-runtime-boundary', summary: 'HTML event handler attributes execute in the browser runtime and require source-bound host evidence.' };
@@ -177,7 +168,12 @@ function runtimeAttributeSpec(name, tagName) {
   if (tagName === 'base' && BaseRuntimeAttributes.has(name)) return { boundary: 'html-document-base-runtime-attribute', reasonCode: 'document-base-runtime-boundary', summary: 'HTML base attributes affect URL resolution or navigation targets and require source-bound host evidence.' };
   if (tagName === 'meta' && MetaRuntimeAttributes.has(name)) return { boundary: 'html-document-metadata-runtime-attribute', reasonCode: 'document-metadata-runtime-boundary', summary: 'HTML metadata attributes can affect document loading, policy, refresh, viewport, or discovery behavior and require source-bound host evidence.' };
   if (ResourceLoadingTags.has(tagName) && ResourceLoadingAttributes.has(name)) return { boundary: 'html-resource-loading-attribute', reasonCode: 'resource-loading-runtime-boundary', summary: 'HTML resource-loading attributes affect fetched resources, selection, privacy, media behavior, or layout and require source-bound host evidence.' };
+  if (isCustomRuntimeAttribute(name)) return { boundary: 'html-custom-runtime-attribute', reasonCode: 'custom-runtime-attribute-boundary', summary: 'Custom runtime attributes are interpreted by client libraries and require source-bound runtime evidence.' };
   return undefined;
+}
+
+function isCustomRuntimeAttribute(name) {
+  return name.startsWith('hx-') || name.startsWith('data-hx-');
 }
 
 function parserRecoveryConflicts(id, sourcePath, trees) {
@@ -300,6 +296,7 @@ function conflict(id, sourcePath, code, reasonCode, details = {}) {
 }
 
 function proofGap(code, summary) { return { code, status: 'not-claimed', summary, failClosed: true, semanticEquivalenceClaim: false }; }
+function attributeBoundaryMetadata(boundary, boundaryAttributes) { return compactRecord({ boundary, boundaryAttributes, attributeName: boundaryAttributes.length === 1 ? boundaryAttributes[0] : undefined }); }
 function sameChange(left, right) { return (left.after?.recordHash ?? '') === (right.after?.recordHash ?? '') && left.kind === right.kind; }
 function changeSummary(change) { return { kind: change.kind, recordKind: change.after?.kind ?? change.before?.kind, recordHash: change.after?.recordHash }; }
 function unique(values) { return [...new Set(values.filter((value) => value !== undefined && value !== null && String(value)))]; }
