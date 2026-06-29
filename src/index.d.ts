@@ -181,7 +181,7 @@ export interface HtmlSafeMergeAdmission {
   readonly reviewRequired: boolean;
   readonly reasonCodes: readonly string[];
   readonly browserRuntimeEquivalenceClaim?: true;
-  readonly htmlBrowserRuntimeProofs?: readonly HtmlBrowserRuntimeProofRecord[]; readonly htmlUnkeyedStructuralAddEvidence?: readonly HtmlUnkeyedStructuralAddEvidence[]; readonly htmlUnkeyedStructuralDeleteEvidence?: readonly HtmlUnkeyedStructuralDeleteEvidence[];
+  readonly htmlBrowserRuntimeProofs?: readonly HtmlBrowserRuntimeProofRecord[]; readonly htmlUnkeyedStructuralAddEvidence?: readonly HtmlUnkeyedStructuralAddEvidence[]; readonly htmlUnkeyedStructuralDeleteEvidence?: readonly HtmlUnkeyedStructuralDeleteEvidence[]; readonly htmlUnkeyedStructuralMoveEvidence?: readonly HtmlUnkeyedStructuralMoveEvidence[];
 }
 export interface HtmlSafeMergeResult {
   readonly kind: 'frontier.lang.htmlSafeMerge';
@@ -206,11 +206,11 @@ export interface HtmlSafeMergeResult {
   readonly identityEvidence?: HtmlSafeMergeIdentityEvidence;
   readonly htmlClassTokenMergeEvidence?: readonly HtmlTokenListMergeEvidence[];
   readonly htmlTokenListMergeEvidence?: readonly HtmlTokenListMergeEvidence[];
-  readonly htmlRuntimeProofs?: readonly HtmlBrowserRuntimeProofRecord[]; readonly htmlUnkeyedStructuralAddEvidence?: readonly HtmlUnkeyedStructuralAddEvidence[]; readonly htmlUnkeyedStructuralDeleteEvidence?: readonly HtmlUnkeyedStructuralDeleteEvidence[];
+  readonly htmlRuntimeProofs?: readonly HtmlBrowserRuntimeProofRecord[]; readonly htmlUnkeyedStructuralAddEvidence?: readonly HtmlUnkeyedStructuralAddEvidence[]; readonly htmlUnkeyedStructuralDeleteEvidence?: readonly HtmlUnkeyedStructuralDeleteEvidence[]; readonly htmlUnkeyedStructuralMoveEvidence?: readonly HtmlUnkeyedStructuralMoveEvidence[];
 }
 export interface HtmlUnkeyedStructuralAddEvidence { readonly kind: 'frontier.lang.htmlUnkeyedStructuralAddEvidence'; readonly version: 1; readonly status: 'passed' | string; readonly sourcePath?: string; readonly recordKey?: string; readonly parentKey?: string; readonly tagName?: string; readonly parserBackedStructuralSpans: true; readonly parentExplicitIdentity: true; readonly addOnly: true; readonly siblingStructuralRace: false; readonly autoMergeClaim: false; readonly semanticEquivalenceClaim: false; readonly browserRuntimeEquivalenceClaim: false; readonly browserRenderEquivalenceClaim: false; readonly evidenceHash: string; readonly [key:string]: unknown; }
 export interface HtmlUnkeyedStructuralDeleteEvidence { readonly kind: 'frontier.lang.htmlUnkeyedStructuralDeleteEvidence'; readonly version: 1; readonly status: 'passed' | string; readonly sourcePath?: string; readonly recordKey?: string; readonly parentKey?: string; readonly tagName?: string; readonly parserBackedStructuralSpans: true; readonly parentExplicitIdentity: true; readonly deleteOnly: true; readonly siblingStructuralRace: false; readonly autoMergeClaim: false; readonly semanticEquivalenceClaim: false; readonly browserRuntimeEquivalenceClaim: false; readonly browserRenderEquivalenceClaim: false; readonly evidenceHash: string; readonly [key:string]: unknown; }
-
+export interface HtmlUnkeyedStructuralMoveEvidence { readonly kind: 'frontier.lang.htmlUnkeyedStructuralMoveEvidence'; readonly version: 1; readonly status: 'passed' | string; readonly sourcePath?: string; readonly fromRecordKey?: string; readonly toRecordKey?: string; readonly parentKey?: string; readonly tagName?: string; readonly parserBackedStructuralSpans: true; readonly parentExplicitIdentity: true; readonly moveOnly: true; readonly exactSubtreeText: true; readonly keyedSiblingAnchor: true; readonly siblingStructuralRace: false; readonly autoMergeClaim: false; readonly semanticEquivalenceClaim: false; readonly browserRuntimeEquivalenceClaim: false; readonly browserRenderEquivalenceClaim: false; readonly evidenceHash: string; readonly [key:string]: unknown; }
 export interface HtmlTokenListMergeEvidence {
   readonly kind: 'frontier.lang.htmlClassTokenMergeEvidence' | 'frontier.lang.htmlTokenListMergeEvidence' | string; readonly version: 1; readonly sourcePath?: string; readonly recordKey?: string; readonly attributeName: string;
   readonly parserBackedTokenList: true; readonly parserBackedClassList?: true; readonly tokenSetSemantics: string;

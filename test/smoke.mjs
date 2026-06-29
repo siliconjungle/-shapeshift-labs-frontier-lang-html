@@ -9,6 +9,7 @@ import './structural-runtime-proof-smoke.mjs';
 import './class-token-merge-smoke.mjs';
 import './token-list-merge-smoke.mjs';
 import './unkeyed-structural-add-smoke.mjs';
+import './unkeyed-structural-move-smoke.mjs';
 
 const document = createDocument({ id: 'doc', name: 'TodoHtml', nodes: [
   typeNode({ id: 'type_input', name: 'TodoInput', fields: [{ id: 'field_title', name: 'title', type: 'Text' }] }),

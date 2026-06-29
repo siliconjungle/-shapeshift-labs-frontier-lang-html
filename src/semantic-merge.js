@@ -23,11 +23,11 @@ function safeMergeHtmlSource(input = {}) {
   };
   const parserConflicts = parserRecoveryConflicts(id, sourcePath, trees);
   const structuralMergeConflicts = [
-    ...structuralConflicts(id, sourcePath, changes.worker, changes.head),
-    ...structuralConflicts(id, sourcePath, changes.head, changes.worker),
+    ...structuralConflicts(id, sourcePath, changes.worker, changes.head, { baseTree: trees.base, sideTree: trees.worker, oppositeChanges: changes.head, targetTree: trees.head }),
+    ...structuralConflicts(id, sourcePath, changes.head, changes.worker, { baseTree: trees.base, sideTree: trees.head, oppositeChanges: changes.worker, targetTree: trees.worker }),
     ...overlapConflicts(id, sourcePath, changes.worker, changes.head)
   ];
-  const patch = structuralPatchPlan(id, sourcePath, changes.worker, trees.worker, trees.head);
+  const patch = structuralPatchPlan(id, sourcePath, changes.worker, trees.worker, trees.head, trees.base);
   const mergedSourceText = patch.conflicts.length ? undefined : applyReplacements(head, patch.replacements);
   const runtimeAdmission = admitHtmlRuntimeProofs({
     id,
@@ -57,7 +57,7 @@ function safeMergeHtmlSource(input = {}) {
     identityEvidence,
     htmlClassTokenMergeEvidence: patch.classTokenMergeEvidence,
     htmlTokenListMergeEvidence: patch.tokenListMergeEvidence,
-    htmlUnkeyedStructuralAddEvidence: patch.unkeyedStructuralAddEvidence, htmlUnkeyedStructuralDeleteEvidence: patch.unkeyedStructuralDeleteEvidence,
+    htmlUnkeyedStructuralAddEvidence: patch.unkeyedStructuralAddEvidence, htmlUnkeyedStructuralDeleteEvidence: patch.unkeyedStructuralDeleteEvidence, htmlUnkeyedStructuralMoveEvidence: patch.unkeyedStructuralMoveEvidence,
     htmlRuntimeProofs: runtimeAdmission.proofs,
     browserRuntimeEquivalenceClaim: runtimeAdmission.proofs.length > 0
   });
@@ -67,7 +67,7 @@ function singleSideMerge(id, sourcePath, base, current, operation, input, side, 
   if (base === current) return merged(id, sourcePath, current, operation);
   const trees = { base: parseMergeTree(base, sourcePath), [side]: parseMergeTree(current, sourcePath) };
   const changes = changedRecords(trees.base.index, trees[side].index, side);
-  const patch = structuralPatchPlan(id, sourcePath, changes, trees[side], trees.base);
+  const patch = structuralPatchPlan(id, sourcePath, changes, trees[side], trees.base, trees.base);
   const runtimeAdmission = admitHtmlRuntimeProofs({
     id,
     sourcePath,
@@ -80,7 +80,7 @@ function singleSideMerge(id, sourcePath, base, current, operation, input, side, 
     ...parserRecoveryConflicts(id, sourcePath, trees),
     ...duplicateExplicitIdentityConflicts(id, sourcePath, trees),
     ...runtimeAdmission.conflicts,
-    ...structuralConflicts(id, sourcePath, changes)
+    ...structuralConflicts(id, sourcePath, changes, [], { baseTree: trees.base, sideTree: trees[side], targetTree: trees.base })
   ];
   const parserEvidence = mergeParserEvidence(trees);
   const identityEvidence = mergeIdentityEvidence(trees);
@@ -91,7 +91,7 @@ function singleSideMerge(id, sourcePath, base, current, operation, input, side, 
     changedRecords: changes.length,
     parserEvidence,
     identityEvidence,
-    htmlUnkeyedStructuralAddEvidence: patch.unkeyedStructuralAddEvidence, htmlUnkeyedStructuralDeleteEvidence: patch.unkeyedStructuralDeleteEvidence,
+    htmlUnkeyedStructuralAddEvidence: patch.unkeyedStructuralAddEvidence, htmlUnkeyedStructuralDeleteEvidence: patch.unkeyedStructuralDeleteEvidence, htmlUnkeyedStructuralMoveEvidence: patch.unkeyedStructuralMoveEvidence,
     htmlRuntimeProofs: runtimeAdmission.proofs,
     browserRuntimeEquivalenceClaim: runtimeAdmission.proofs.length > 0
   });
@@ -290,7 +290,7 @@ function result(id, sourcePath, status, body) {
       reasonCodes: unique((body.conflicts ?? []).map((item) => item.details.reasonCode)),
       browserRuntimeEquivalenceClaim: browserRuntimeEquivalenceClaim || undefined,
       htmlBrowserRuntimeProofs: body.htmlRuntimeProofs?.length ? body.htmlRuntimeProofs : undefined,
-      htmlUnkeyedStructuralAddEvidence: body.htmlUnkeyedStructuralAddEvidence?.length ? body.htmlUnkeyedStructuralAddEvidence : undefined, htmlUnkeyedStructuralDeleteEvidence: body.htmlUnkeyedStructuralDeleteEvidence?.length ? body.htmlUnkeyedStructuralDeleteEvidence : undefined
+      htmlUnkeyedStructuralAddEvidence: body.htmlUnkeyedStructuralAddEvidence?.length ? body.htmlUnkeyedStructuralAddEvidence : undefined, htmlUnkeyedStructuralDeleteEvidence: body.htmlUnkeyedStructuralDeleteEvidence?.length ? body.htmlUnkeyedStructuralDeleteEvidence : undefined, htmlUnkeyedStructuralMoveEvidence: body.htmlUnkeyedStructuralMoveEvidence?.length ? body.htmlUnkeyedStructuralMoveEvidence : undefined
     }
   };
 }

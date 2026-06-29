@@ -1,27 +1,32 @@
 import { classTokenMergePlan, htmlTokenListMergePlan, isHtmlTokenListMergeAttribute } from './class-token-merge.js';
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
+import { unkeyedStructuralMoveKeySet, unkeyedStructuralMovePairs, unkeyedStructuralMoveRecord } from './unkeyed-structural-move.js';
 
-function structuralConflicts(id, sourcePath, sideChanges, oppositeChanges = []) {
-  const roots = structuralRoots(sideChanges, oppositeChanges);
+function structuralConflicts(id, sourcePath, sideChanges, oppositeChanges = [], options = {}) {
+  const roots = structuralRoots(sideChanges, oppositeChanges, options);
   const conflicts = [];
   for (const change of sideChanges) {
     if ((change.after ?? change.before)?.kind === 'child-order') continue;
     if (!isStructural(change)) continue;
+    if (roots.includes(change)) continue;
     if (containedByStructuralRoot(change, roots)) continue;
-    if (!isSafeStructuralRoot(change, sideChanges, oppositeChanges)) conflicts.push(conflict(id, sourcePath, 'html-structural-add-delete-unsupported', 'html-structural-add-delete-unsupported', { recordKey: change.key, changeKind: change.kind }));
+    conflicts.push(conflict(id, sourcePath, 'html-structural-add-delete-unsupported', 'html-structural-add-delete-unsupported', { recordKey: change.key, changeKind: change.kind }));
   }
   for (const root of roots) conflicts.push(...oppositeOverlapConflicts(id, sourcePath, root, oppositeChanges));
   return conflicts;
 }
 
-function structuralPatchPlan(id, sourcePath, workerChanges, workerTree, headTree) {
+function structuralPatchPlan(id, sourcePath, workerChanges, workerTree, headTree, baseTree) {
   const conflicts = [];
   const replacements = [];
   const classTokenMergeEvidence = [];
   const tokenListMergeEvidence = [];
   const unkeyedStructuralAddEvidence = [];
   const unkeyedStructuralDeleteEvidence = [];
-  const roots = structuralRoots(workerChanges);
+  const moveOptions = { baseTree, sideTree: workerTree, targetTree: headTree };
+  const movePairs = unkeyedStructuralMovePairs(workerChanges, moveOptions);
+  const moveKeySet = unkeyedStructuralMoveKeySet(workerChanges, moveOptions);
+  const roots = structuralRoots(workerChanges, [], { ...moveOptions, movePairs });
   for (const change of workerChanges) {
     if (containedByStructuralRoot(change, roots)) continue;
     if ((change.after ?? change.before)?.kind === 'child-order' && change.kind !== 'update') continue;
@@ -35,7 +40,7 @@ function structuralPatchPlan(id, sourcePath, workerChanges, workerTree, headTree
       if (offset === undefined) conflicts.push(conflict(id, sourcePath, 'html-structural-anchor-missing', 'html-structural-anchor-missing', { recordKey: change.key }));
       else {
         replacements.push({ start: offset, end: offset, text: insertText(change.after, workerTree) });
-        if (isSafeUnkeyedStructuralAdd(change, workerChanges)) unkeyedStructuralAddEvidence.push(unkeyedStructuralAddRecord(sourcePath, change, workerTree, headTree));
+        if (!moveKeySet.has(change.key) && isSafeUnkeyedStructuralAdd(change, workerChanges)) unkeyedStructuralAddEvidence.push(unkeyedStructuralAddRecord(sourcePath, change, workerTree, headTree));
       }
       continue;
     }
@@ -43,7 +48,7 @@ function structuralPatchPlan(id, sourcePath, workerChanges, workerTree, headTree
       const headRecord = headTree.index.get(change.key);
       if (!headRecord) continue;
       replacements.push({ start: headRecord.structuralSpan.startOffset, end: headRecord.fullSpan.endOffset, text: '' });
-      if (isSafeUnkeyedStructuralDelete(change, workerChanges)) unkeyedStructuralDeleteEvidence.push(unkeyedStructuralDeleteRecord(sourcePath, change, workerTree, headTree, headRecord));
+      if (!moveKeySet.has(change.key) && isSafeUnkeyedStructuralDelete(change, workerChanges)) unkeyedStructuralDeleteEvidence.push(unkeyedStructuralDeleteRecord(sourcePath, change, workerTree, headTree, headRecord));
       continue;
     }
     const headRecord = headTree.index.get(change.key);
@@ -62,11 +67,12 @@ function structuralPatchPlan(id, sourcePath, workerChanges, workerTree, headTree
     }
     else replacements.push({ start: headRecord.sourceSpan.startOffset, end: headRecord.sourceSpan.endOffset, text: change.after.value });
   }
-  return { conflicts, replacements, classTokenMergeEvidence, tokenListMergeEvidence, unkeyedStructuralAddEvidence, unkeyedStructuralDeleteEvidence };
+  return { conflicts, replacements, classTokenMergeEvidence, tokenListMergeEvidence, unkeyedStructuralAddEvidence, unkeyedStructuralDeleteEvidence, unkeyedStructuralMoveEvidence: movePairs.map((pair) => unkeyedStructuralMoveRecord(sourcePath, pair, baseTree, workerTree, headTree)) };
 }
 
-function structuralRoots(changes, oppositeChanges = []) {
-  return changes.filter((change) => isSafeStructuralRoot(change, changes, oppositeChanges));
+function structuralRoots(changes, oppositeChanges = [], options = {}) {
+  const moveKeys = options.movePairs ? new Set(options.movePairs.flatMap((pair) => [pair.add.key, pair.deletion.key])) : unkeyedStructuralMoveKeySet(changes, { ...options, oppositeChanges });
+  return changes.filter((change) => moveKeys.has(change.key) || isSafeStructuralRoot(change, changes, oppositeChanges));
 }
 
 function isSafeStructuralRoot(change, sideChanges = [], oppositeChanges = []) {
