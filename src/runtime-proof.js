@@ -1,5 +1,5 @@
 import { hashSemanticValue } from '@shapeshift-labs/frontier-lang-kernel';
-import { normalizeRuntimeProofCapsule, runtimeEvidenceMetadataFromProof } from '@shapeshift-labs/frontier-runtime-proof';
+import { normalizeRuntimeProofCapsule, runtimeEvidenceMetadataFromProof, validateRuntimeProofAgainstProbe } from '@shapeshift-labs/frontier-runtime-proof';
 
 function createHtmlRuntimeProof(input = {}) {
   const runtime = runtimeEvidenceInput(input);
@@ -157,42 +157,19 @@ function htmlRuntimeEvidenceMetadata(proof, reasonCode, boundary) {
   const requiredSignals = requiredHtmlRuntimeSignals(reasonCode, boundary);
   const capsule = normalizeRuntimeProofCapsule(proof);
   if (capsule?.valid === false) return undefined;
-  if (capsule?.valid === true) return runtimeEvidenceMetadataFromProof(proof, { requiredSignals });
+  if (capsule?.valid === true) {
+    const validation = validateRuntimeProofAgainstProbe(proof, {
+      id: `html-runtime-proof#${reasonCode ?? 'runtime'}#${boundary ?? 'boundary'}`, requiredSignals,
+      requireRuntimeProofCapsule: true, requireTelemetryHash: true, requireDomSnapshotHash: true, requireComputedStyleHash: true, requireLayoutSnapshotHash: true,
+      requireEventTraceHash: true, requireAccessibilitySnapshotHash: true, requireFocusSnapshotHash: true, requireLayoutShiftHash: true, requireScreenshotHash: true,
+      maxCumulativeLayoutShift: typeof proof.maxCumulativeLayoutShift === 'number' ? proof.maxCumulativeLayoutShift : 0.01
+    });
+    return validation.ok ? validation.metadata : undefined;
+  }
   const signals = runtimeSignals(proof);
-  const command = firstString(
-    proof.runtimeCommand,
-    proof.browserCommand,
-    proof.command,
-    proof.commandId,
-    proof.probeCommand,
-    proof.evidence?.command,
-    proof.runtimeEvidence?.command,
-    proof.browserEvidence?.command
-  );
-  const probeId = firstString(
-    proof.runtimeProbeId,
-    proof.browserProbeId,
-    proof.probeId,
-    proof.probe?.id,
-    proof.evidence?.probeId,
-    proof.runtimeEvidence?.probeId,
-    proof.browserEvidence?.probeId
-  );
-  const evidenceHash = firstString(
-    proof.runtimeEvidenceHash,
-    proof.browserEvidenceHash,
-    proof.evidenceHash,
-    proof.domEvidenceHash,
-    proof.renderEvidenceHash,
-    proof.hydrationEvidenceHash,
-    proof.resourceEvidenceHash,
-    proof.evidence?.hash,
-    proof.evidence?.evidenceHash,
-    proof.runtimeEvidence?.hash,
-    proof.runtimeEvidence?.evidenceHash,
-    proof.browserEvidence?.hash,
-    proof.browserEvidence?.evidenceHash
-  );
+  const command = firstString(proof.runtimeCommand, proof.browserCommand, proof.command, proof.commandId, proof.probeCommand, proof.evidence?.command, proof.runtimeEvidence?.command, proof.browserEvidence?.command);
+  const probeId = firstString(proof.runtimeProbeId, proof.browserProbeId, proof.probeId, proof.probe?.id, proof.evidence?.probeId, proof.runtimeEvidence?.probeId, proof.browserEvidence?.probeId);
+  const evidenceHash = firstString(proof.runtimeEvidenceHash, proof.browserEvidenceHash, proof.evidenceHash, proof.domEvidenceHash, proof.renderEvidenceHash, proof.hydrationEvidenceHash, proof.resourceEvidenceHash, proof.evidence?.hash, proof.evidence?.evidenceHash, proof.runtimeEvidence?.hash, proof.runtimeEvidence?.evidenceHash, proof.browserEvidence?.hash, proof.browserEvidence?.evidenceHash);
   const hasRequiredSignal = requiredSignals.some((signal) => signals.includes(signal));
   if (!command || !probeId || !evidenceHash || !hasRequiredSignal) return undefined;
   return { command, probeId, evidenceHash, signals, requiredSignals };
@@ -293,6 +270,10 @@ function runtimeProofCapsuleFields(runtime = {}) {
     runtimeComputedStyleHash: capsule?.computedStyleHash,
     runtimeLayoutSnapshotHash: capsule?.layoutSnapshotHash,
     runtimeEventTraceHash: capsule?.eventTraceHash,
+    runtimeAccessibilitySnapshotHash: capsule?.accessibilitySnapshotHash,
+    runtimeFocusSnapshotHash: capsule?.focusSnapshotHash,
+    runtimeLayoutShiftHash: capsule?.layoutShiftHash,
+    runtimeScreenshotHash: capsule?.screenshotHash,
     runtimeCumulativeLayoutShift: capsule?.cumulativeLayoutShift
   });
 }

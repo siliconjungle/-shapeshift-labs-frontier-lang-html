@@ -47,12 +47,25 @@ const capsuleScriptProof = createHtmlRuntimeProof({
     probeId: 'html:script-runtime-boundary:builder',
     evidenceHash: hashSemanticValue('html builder script runtime capsule evidence'),
     signals: ['html-script-runtime'],
-    telemetry: { hash: 'html-builder-capsule-telemetry', cumulativeLayoutShift: 0 }
+    telemetry: {
+      hash: 'html-builder-capsule-telemetry',
+      domSnapshotHash: 'html-builder-capsule-dom',
+      computedStyleHash: 'html-builder-capsule-style',
+      layoutSnapshotHash: 'html-builder-capsule-layout',
+      eventTraceHash: 'html-builder-capsule-events',
+      accessibilitySnapshotHash: 'html-builder-capsule-accessibility',
+      focusSnapshotHash: 'html-builder-capsule-focus',
+      layoutShiftHash: 'html-builder-capsule-layout-shift',
+      screenshotHash: 'html-builder-capsule-screenshot',
+      cumulativeLayoutShift: 0
+    }
   }
 });
 assert.equal(capsuleScriptProof.runtimeCommand, 'playwright test html-builder-runtime-capsule.spec.ts');
 assert.equal(capsuleScriptProof.runtimeProofMode, 'app-shell-fixture');
 assert.equal(capsuleScriptProof.runtimeTelemetryHash, 'html-builder-capsule-telemetry');
+assert.equal(capsuleScriptProof.runtimeAccessibilitySnapshotHash, 'html-builder-capsule-accessibility');
+assert.equal(capsuleScriptProof.runtimeFocusSnapshotHash, 'html-builder-capsule-focus');
 
 const scriptMerged = safeMergeHtmlSource({
   id: 'html_builder_script_runtime_proven',
@@ -105,10 +118,22 @@ const capsuleEventProof = createHtmlRuntimeBoundaryProof({
     probeId: 'html:event-handler-runtime-boundary:builder',
     evidenceHash: hashSemanticValue('html builder event runtime capsule evidence'),
     signals: ['html-event-handler-runtime'],
-    telemetry: { hash: 'html-builder-event-capsule-telemetry', cumulativeLayoutShift: 0 }
+    telemetry: {
+      hash: 'html-builder-event-capsule-telemetry',
+      domSnapshotHash: 'html-builder-event-capsule-dom',
+      computedStyleHash: 'html-builder-event-capsule-style',
+      layoutSnapshotHash: 'html-builder-event-capsule-layout',
+      eventTraceHash: 'html-builder-event-capsule-events',
+      accessibilitySnapshotHash: 'html-builder-event-capsule-accessibility',
+      focusSnapshotHash: 'html-builder-event-capsule-focus',
+      layoutShiftHash: 'html-builder-event-capsule-layout-shift',
+      screenshotHash: 'html-builder-event-capsule-screenshot',
+      cumulativeLayoutShift: 0
+    }
   }
 });
 assert.equal(capsuleEventProof.runtimeProofMode, 'isolated-fixture');
+assert.equal(capsuleEventProof.runtimeLayoutShiftHash, 'html-builder-event-capsule-layout-shift');
 
 const eventMerged = safeMergeHtmlSource({
   id: 'html_builder_event_runtime_proven',

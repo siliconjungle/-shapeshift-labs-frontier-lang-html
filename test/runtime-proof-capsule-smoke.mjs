@@ -33,6 +33,10 @@ const capsuleProof = {
       computedStyleHash: 'html-capsule-style',
       layoutSnapshotHash: 'html-capsule-layout',
       eventTraceHash: 'html-capsule-events',
+      accessibilitySnapshotHash: 'html-capsule-accessibility',
+      focusSnapshotHash: 'html-capsule-focus',
+      layoutShiftHash: 'html-capsule-layout-shift',
+      screenshotHash: 'html-capsule-screenshot',
       cumulativeLayoutShift: 0
     }
   }
@@ -55,8 +59,34 @@ assert.equal(capsuleProven.htmlRuntimeProofs[0].runtimeTelemetryHash, 'html-caps
 assert.equal(capsuleProven.htmlRuntimeProofs[0].runtimeDomSnapshotHash, 'html-capsule-dom');
 assert.equal(capsuleProven.htmlRuntimeProofs[0].runtimeComputedStyleHash, 'html-capsule-style');
 assert.equal(capsuleProven.htmlRuntimeProofs[0].runtimeLayoutSnapshotHash, 'html-capsule-layout');
+assert.equal(capsuleProven.htmlRuntimeProofs[0].runtimeAccessibilitySnapshotHash, 'html-capsule-accessibility');
+assert.equal(capsuleProven.htmlRuntimeProofs[0].runtimeFocusSnapshotHash, 'html-capsule-focus');
+assert.equal(capsuleProven.htmlRuntimeProofs[0].runtimeLayoutShiftHash, 'html-capsule-layout-shift');
+assert.equal(capsuleProven.htmlRuntimeProofs[0].runtimeScreenshotHash, 'html-capsule-screenshot');
 assert.equal(capsuleProven.htmlRuntimeProofs[0].runtimeCumulativeLayoutShift, 0);
 assert.equal(typeof capsuleProven.htmlRuntimeProofs[0].runtimeProofCapsuleHash, 'string');
+
+const missingAccessibilityCapsule = safeMergeHtmlSource({
+  id: 'html_runtime_capsule_missing_accessibility',
+  sourcePath: 'view.html',
+  baseSourceText: base,
+  workerSourceText: worker,
+  headSourceText: head,
+  htmlBrowserRuntimeProofs: [{
+    ...capsuleProof,
+    id: 'proof_html_script_runtime_capsule_missing_accessibility',
+    runtimeProofCapsule: {
+      ...capsuleProof.runtimeProofCapsule,
+      telemetry: {
+        ...capsuleProof.runtimeProofCapsule.telemetry,
+        accessibilitySnapshotHash: undefined
+      }
+    }
+  }]
+});
+assert.equal(missingAccessibilityCapsule.status, 'blocked');
+assert.equal(missingAccessibilityCapsule.htmlRuntimeProofs.length, 0);
+assert.equal(missingAccessibilityCapsule.conflicts.some((conflict) => conflict.details.reasonCode === 'script-runtime-boundary'), true);
 
 const blockedCapsule = safeMergeHtmlSource({
   id: 'html_runtime_capsule_blocked',
