@@ -11,6 +11,7 @@ export function toHtmlAst(document, options = {}) {
   const body = [];
   for (const node of Object.values(document.nodes)) {
     if (node.kind === 'entity' || node.kind === 'type') body.push(sectionNode(node, node.fields ?? []));
+    if (node.kind === 'view') body.push(viewSectionNode(node));
     if (node.kind === 'action') body.push(elementNode('button', { type: 'button', 'data-frontier-action': node.name }, [textNode(node.name)], sourceRef(node)));
     if (node.kind === 'capability') body.push(elementNode('div', { 'data-frontier-capability': node.capability, 'data-frontier-category': node.category }, [textNode(node.name)], sourceRef(node)));
     if (node.kind === 'lattice') body.push(elementNode('div', { 'data-frontier-lattice': node.name, 'data-frontier-carrier': String(node.carrier ?? '') }, [textNode(node.name)], sourceRef(node)));
@@ -87,6 +88,47 @@ function sectionNode(node, fields) {
   ], sourceRef(node, { regionIds: fields.map((field) => field.id) }));
 }
 
+function viewSectionNode(node) {
+  const regionIds = [...(node.props ?? []).map((prop) => prop.id), ...(node.events ?? []).map((event) => event.id), ...(node.renders ?? []).map((render) => render.id)].filter(Boolean);
+  const renderById = new Map((node.renders ?? []).map((render) => [render.id, render]));
+  const childRenderIds = new Set((node.renders ?? []).flatMap((render) => render.children ?? []));
+  const rootRenders = (node.renders ?? []).filter((render) => !childRenderIds.has(render.id));
+  const rendered = rootRenders.map((render) => viewRenderElement(node, render, renderById, new Set()));
+  return elementNode('section', { 'data-frontier-kind': 'view', 'data-frontier-name': node.name, 'data-frontier-view': node.name }, rendered.length ? rendered : [textNode(node.name)], sourceRef(node, { regionIds }));
+}
+
+function viewRenderElement(view, render, renderById, seen) {
+  if (seen.has(render.id)) return textNode('');
+  const nextSeen = new Set(seen);
+  nextSeen.add(render.id);
+  if (render.kind === 'text') return textNode(render.text ?? '');
+  const attributes = {
+    'data-frontier-render': render.id,
+    'data-frontier-render-kind': render.kind,
+    'data-frontier-tag': render.tagName ?? render.component,
+    'data-frontier-component': render.component,
+    'data-frontier-key': render.identityKey ?? render.id
+  };
+  for (const prop of render.props ?? []) addRenderProp(attributes, prop);
+  for (const event of render.events ?? []) attributes[`data-frontier-on-${dataAttributeName(event.name)}`] = event.action;
+  const children = [];
+  if (render.text !== undefined) children.push(textNode(render.text));
+  for (const childId of render.children ?? []) {
+    const child = renderById.get(childId);
+    if (child) children.push(viewRenderElement(view, child, renderById, nextSeen));
+  }
+  return elementNode(htmlTagName(render.tagName ?? render.component), attributes, children, sourceRef(view, { regionIds: [render.id].filter(Boolean) }));
+}
+
+function addRenderProp(attributes, prop) {
+  const name = htmlAttributeName(prop.name);
+  if (Object.prototype.hasOwnProperty.call(prop, 'value') && name) {
+    attributes[name] = prop.value;
+    return;
+  }
+  if (prop.expression !== undefined) attributes[`data-frontier-prop-${dataAttributeName(prop.name)}`] = prop.expression;
+}
+
 function elementNode(tagName, attributes = {}, children = [], sourceRefValue) {
   return { kind: 'element', tagName, attributes: cleanObject(attributes), children, sourceRef: sourceRefValue };
 }
@@ -103,6 +145,10 @@ function renderHtmlNode(lines, mappings, node, depth, ordinal, options) {
   const startLine = lines.length + 1;
   const attrs = Object.entries(node.attributes ?? {}).map(([key, value]) => ` ${key}="${escapeAttribute(value)}"`).join('');
   lines.push(`${indent}<${node.tagName}${attrs}>`);
+  if (VoidTags.has(node.tagName)) {
+    if (node.sourceRef?.semanticNodeId) mappings.push(sourceMapMapping(node, mappings.length, startLine, lines.length, options));
+    return;
+  }
   for (const child of node.children ?? []) renderHtmlNode(lines, mappings, child, depth + 1, ordinal, options);
   lines.push(`${indent}</${node.tagName}>`);
   if (node.sourceRef?.semanticNodeId) mappings.push(sourceMapMapping(node, mappings.length, startLine, lines.length, options));
@@ -232,6 +278,9 @@ function computeLineStarts(text) { const starts = [0]; for (let index = 0; index
 function escapeText(value) { return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function escapeAttribute(value) { return escapeText(value).replace(/"/g, '&quot;'); }
 function typeName(type) { return typeof type === 'string' ? type : type?.name ?? type?.kind ?? 'unknown'; }
+function htmlTagName(name) { const tag = String(name ?? 'div').trim().toLowerCase(); return /^[a-z][\w:-]*$/.test(tag) ? tag : 'div'; }
+function htmlAttributeName(name) { const attr = String(name ?? '').trim(); return /^[:A-Za-z_][\w:.-]*$/.test(attr) ? attr : undefined; }
+function dataAttributeName(name) { return String(name ?? 'unknown').trim().toLowerCase().replace(/[^a-z0-9_.:-]+/g, '-').replace(/^-+|-+$/g, '') || 'unknown'; }
 function cleanObject(object) { return Object.fromEntries(Object.entries(object).filter(([, value]) => value !== undefined)); }
 function compactRecord(record) { return Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined)); }
 function idFragment(value) { return String(value ?? 'unknown').replace(/[^A-Za-z0-9_$]/g, '_').replace(/^_+/, '') || 'unknown'; }
